@@ -1,0 +1,74 @@
+{
+  "_comment": "Single source of truth for the whole experiment. Fixed seeds + pinned model names = reproducible. Paths are relative to repo root.",
+  "seed": 42,
+
+  "paths": {
+    "corpus_dir": "corpus/vault",
+    "data_dir": "data",
+    "results_dir": "results",
+    "runs_dir": "runs",
+    "hf_cache": ".cache/huggingface"
+  },
+
+  "ollama": {
+    "host": "http://localhost:11434",
+    "gen_model": "qwen3.5:9b",
+    "augment_model": "qwen3.5:9b",
+    "decompose_model": "qwen3.5:9b",
+    "options": { "temperature": 0.7, "top_p": 0.9, "num_ctx": 8192 }
+  },
+
+  "corpus": {
+    "target_notes": 680,
+    "language": "franglais",
+    "types": ["lesson", "reference", "identity", "feedback", "user", "journal"],
+    "title_words_median": 6,
+    "summary_words_median": 24,
+    "links_per_note_avg": 3.7,
+    "hub_outdegree_max": 8,
+    "n_clusters": 22,
+    "_graph_note": "Links are generated cluster-aware (mostly intra-cluster + a few inter-cluster bridges) so the associative signal is semantically meaningful, not random."
+  },
+
+  "build_corpus": {
+    "heldout_fraction": 0.15,
+    "split": "deterministic-hash",
+    "pair_kinds": ["title", "summary", "assoc"]
+  },
+
+  "augment": {
+    "k_per_note": 8,
+    "model": "qwen3.5:9b",
+    "_note": "Train notes only. Dedup vs held-out + multi-gold. Vary vocabulary toward the question/symptom side."
+  },
+
+  "baseline": {
+    "embed_model": "intfloat/multilingual-e5-small",
+    "query_prefix": "query: ",
+    "passage_prefix": "passage: ",
+    "doc_fields": ["title", "summary", "body"],
+    "hybrid": { "use_bm25": true, "dense_weight": 0.7, "bm25_weight": 0.3, "sweep_weights": true }
+  },
+
+  "arm_b": {
+    "base_models": {
+      "0.5B": "Qwen/Qwen2.5-0.5B",
+      "1.5B": "Qwen/Qwen2.5-1.5B",
+      "3B": "Qwen/Qwen2.5-3B"
+    },
+    "lora": { "r": 16, "alpha": 32, "dropout": 0.05, "target_modules": "all-linear" },
+    "train": { "epochs": 8, "lr": 2e-4, "batch_size": 16, "grad_accum": 1, "max_len": 96, "warmup_ratio": 0.03 },
+    "infer": { "beam_size": 12, "top_k_out": 10, "constrained_trie": true }
+  },
+
+  "arm_c": {
+    "decompose_model": "qwen3.5:9b",
+    "max_subqueries": 5,
+    "strategy": "few-shot"
+  },
+
+  "metrics": {
+    "k_values": [1, 4, 6, 10],
+    "bar": { "hit_at_1": 0.80, "hit_at_10": 0.999, "coverage_at_10": 0.999 }
+  }
+}

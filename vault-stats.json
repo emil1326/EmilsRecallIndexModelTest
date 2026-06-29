@@ -1,0 +1,26 @@
+{
+  "_comment": "Stats STRUCTURELLES anonymes d'un vrai vault de mémoire personnelle (zéro contenu). Sert à paramétrer le corpus SYNTHÉTIQUE pour qu'il ait la même forme. Aucune donnée sensible ici — uniquement des nombres.",
+  "notes": 680,
+  "language": "franglais — français courant + termes techniques anglais mêlés dans la même note",
+  "note_shape": {
+    "title_words_median": 6,
+    "summary_words_median": 24,
+    "summary_words_avg": 23.3,
+    "body_present": true,
+    "body_is_longer_than_summary": true
+  },
+  "link_graph": {
+    "links_per_note_avg": 3.7,
+    "directed": true,
+    "note": "graphe DENSE et dirigé (A lie [[B]]). C'est le porteur du signal ASSOCIATIF que l'embedding cosine rate — la cible #1 de l'expérience.",
+    "hubs_exist": true,
+    "hub_outdegree_up_to": 8
+  },
+  "topic_diversity": "élevée — plusieurs domaines (technique, méthodo, identité, réflexion) sur peu de notes",
+  "derived_pairs_deterministic": {
+    "train": 3402,
+    "heldout": 444,
+    "by_kind": { "title": 680, "summary": 594, "assoc": 2486 },
+    "note": "AVANT augmentation paraphrase. C'est petit -> l'augmentation est nécessaire pour tester la généralisation, pas la mémorisation."
+  }
+}

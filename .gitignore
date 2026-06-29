@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.venv-dml/
+venv/
+*.egg-info/
+
+# Caches / downloaded models (multi-GB — never commit)
+.cache/
+.hf_cache/
+*.safetensors
+*.bin
+
+# Trained adapters & checkpoints (regenerable from configs+seed)
+runs/
+checkpoints/
+adapters/
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# Node
+node_modules/
+
+# Keep these (synthetic, small, shareable):
+#   corpus/, data/*.jsonl, results/*.json, configs/, paper/

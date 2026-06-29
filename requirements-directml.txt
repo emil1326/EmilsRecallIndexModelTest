@@ -1,0 +1,18 @@
+# Arm B training/inference on the AMD Radeon RX 9070 XT via DirectML, native Windows.
+# Install into a SEPARATE venv (.venv-dml) — torch-directml pins an older torch that
+# conflicts with the 2.11 CPU build used by the rest of the pipeline.
+#
+#   py -3.10 -m venv .venv-dml
+#   .venv-dml\Scripts\python -m pip install -r requirements-directml.txt
+#
+# Versions are resolved + pinned by scripts/setup_directml.py after a successful GPU
+# smoke-test (see results/directml_env.json). Leaving these loose here because the
+# torch-directml <-> torch <-> transformers/peft compatibility window is narrow and
+# RDNA4 (gfx1201) support is new; the setup script records exactly what worked.
+torch-directml
+transformers
+peft
+accelerate
+datasets
+safetensors
+sentencepiece

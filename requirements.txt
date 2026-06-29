@@ -1,0 +1,17 @@
+# CPU arm: corpus generation orchestration, Arm A baseline (e5+BM25), eval harness,
+# Arm C decomposer, and CPU smoke-tests of Arm B. Pinned to the versions this
+# experiment was run with (Python 3.10, Windows). torch here is the CPU build.
+torch==2.11.0
+transformers==4.57.6
+sentence-transformers==5.4.1
+peft==0.19.1
+accelerate==1.14.0
+datasets==5.0.0
+rank-bm25==0.2.2
+numpy==1.24.2
+scikit-learn==1.7.2
+huggingface-hub==0.36.2
+tokenizers==0.22.2
+safetensors==0.7.0
+# Local LLM (corpus gen / augment / decompose) is reached over HTTP via Ollama —
+# no Python client dep needed (urllib in scripts/common.py).
