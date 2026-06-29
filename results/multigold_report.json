@@ -1,0 +1,10 @@
+{
+  "multigold_queries": 108,
+  "by_subtype": {
+    "neighbors": 40,
+    "cluster": 28,
+    "cross-topic": 40
+  },
+  "dropped": 0,
+  "avg_gold_size": 4.75
+}

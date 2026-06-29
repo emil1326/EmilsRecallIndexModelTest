@@ -39,7 +39,7 @@
 
   "augment": {
     "k_per_note": 8,
-    "model": "qwen3.5:9b",
+    "model": "gemma4:e2b",
     "_note": "Train notes only. Dedup vs held-out + multi-gold. Vary vocabulary toward the question/symptom side."
   },
 

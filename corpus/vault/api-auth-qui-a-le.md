@@ -1,5 +1,5 @@
 ---
-title: API auth: qui a le droit de call le feature checker
+title: API auth qui a le droit de call le feature checker
 summary: L'API du feature checker a besoin d'un système d'auth pour que seuls les apps légitimes puissent la call — sinon n'importe qui peut spoof les checks.
 type: reference
 links:

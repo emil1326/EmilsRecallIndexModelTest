@@ -1,0 +1,7 @@
+{
+  "embed_model": "intfloat/multilingual-e5-small",
+  "tuned_dense_weight": 0.5,
+  "train_dev_mrr": 0.2908,
+  "n_docs": 672,
+  "device": "cpu"
+}

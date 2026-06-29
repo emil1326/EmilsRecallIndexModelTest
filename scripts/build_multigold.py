@@ -37,8 +37,12 @@ def gen_query(gold_notes, subtype, model):
 
 {listing}
 
-Écris UNE seule requête FRANGLAIS (français + termes techniques anglais) qu'un user taperait,
-{hint}. Naturelle, pas une liste. Réponds en JSON: {{"query": "..."}}"""
+Écris UNE seule requête qu'un user taperait, {hint}.
+
+OBLIGATOIRE: la requête est en FRANGLAIS — phrase de base en FRANÇAIS avec les termes
+techniques gardés en anglais. INTERDIT d'écrire la requête entièrement en anglais.
+Exemple de bon franglais: "c'est quoi le deal avec l'invalidation du cache pis les dependency graphs?"
+Naturelle, courte, pas une liste. Réponds en JSON: {{"query": "..."}}"""
     try:
         out = common.ollama_json(prompt, model=model, options={"num_predict": 80, "temperature": 0.8})
         return str(out.get("query", "")).strip() if isinstance(out, dict) else ""
