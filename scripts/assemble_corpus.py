@@ -146,7 +146,7 @@ def main():
                        if n["links"] else "links: []\n")
         (VAULT / f"{slug}.md").write_text(
             f"---\ntitle: {n['title']}\nsummary: {n['summary']}\ntype: {n['type']}\n"
-            f"{links_block}---\n{n['body']}\n", encoding="utf-8")
+            f"{links_block}---\n{n['body']}\n", encoding="utf-8", newline="\n")
 
     manifest = {"notes": notes, "clusters": {k: {"slugs": v} for k, v in cluster_slugs.items()},
                 "links_built": True}

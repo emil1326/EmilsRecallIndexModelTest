@@ -1,0 +1,24 @@
+{
+  "vault": "corpus/vault",
+  "seed": "42",
+  "heldout_fraction_target": 0.15,
+  "notes": 672,
+  "dangling_links_dropped": 0,
+  "train_pairs": 3768,
+  "heldout_pairs": 516,
+  "heldout_notes": 95,
+  "train_by_kind": {
+    "title": 672,
+    "summary": 577,
+    "assoc": 2519
+  },
+  "heldout_by_kind": {
+    "summary": 95,
+    "assoc": 421
+  },
+  "guarantees": {
+    "query_text_leak": 0,
+    "unanchored_heldout_slugs": 0,
+    "slugs_anchored_in_train": true
+  }
+}

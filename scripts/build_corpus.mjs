@@ -45,6 +45,7 @@ function stableUnit(s) {
 
 // ---- minimal frontmatter parser for our known flat shape ----
 function parseNote(text) {
+  text = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) return null;
   const fm = m[1];
