@@ -12,10 +12,11 @@
 
   "ollama": {
     "host": "http://localhost:11434",
-    "gen_model": "qwen3.5:9b",
-    "augment_model": "qwen3.5:9b",
-    "decompose_model": "qwen3.5:9b",
-    "options": { "temperature": 0.7, "top_p": 0.9, "num_ctx": 8192 }
+    "gen_model": "gemma4:e2b",
+    "augment_model": "gemma4:e2b",
+    "decompose_model": "qwen3.5:4b",
+    "options": { "temperature": 0.7, "top_p": 0.9, "num_ctx": 8192 },
+    "_note": "Ollama runs on CPU here (RDNA4/gfx1201 unsupported by its backend, size_vram=0). gemma4:e2b is fastest (~16 tok/s) with good franglais -> used for the high-volume gen+augment. qwen3.5 is a reasoning model: always pass think=false to avoid burning the token budget on hidden reasoning."
   },
 
   "corpus": {

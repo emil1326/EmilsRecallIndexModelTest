@@ -1,0 +1,17 @@
+{
+  "notes": 12,
+  "total_links": 38,
+  "links_per_note_avg": 3.17,
+  "dangling_links": 0,
+  "max_out_degree": 4,
+  "max_in_degree": 5,
+  "isolated_notes": 0,
+  "clusters": 2,
+  "types": {
+    "lesson": 6,
+    "journal": 1,
+    "reference": 5
+  },
+  "title_words_avg": 4.6,
+  "summary_words_avg": 20.0
+}

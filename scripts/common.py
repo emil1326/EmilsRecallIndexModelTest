@@ -99,16 +99,52 @@ def write_jsonl(p, rows):
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
+# --- Vault loader (parse <slug>.md flat frontmatter) -------------------------
+def load_vault(vault_dir=None):
+    """Return {slug: {title, summary, body, type, links:[slug,...]}} from a dir of
+    <slug>.md notes. Mirrors build_corpus.mjs's parser."""
+    vault = Path(vault_dir) if vault_dir else path("corpus_dir")
+    notes = {}
+    for p in sorted(vault.glob("*.md")):
+        slug = p.stem
+        text = p.read_text(encoding="utf-8")
+        m = re.match(r"^---\n(.*?)\n---\n?(.*)$", text, re.S)
+        if not m:
+            continue
+        fm, body = m.group(1), m.group(2).strip()
+        rec = {"title": "", "summary": "", "type": "", "links": [], "body": body}
+        in_links = False
+        for line in fm.split("\n"):
+            kv = re.match(r"^(\w+):\s*(.*)$", line.rstrip())
+            if kv and kv.group(1) in ("title", "summary", "type", "links"):
+                in_links = kv.group(1) == "links"
+                if in_links:
+                    one = re.search(r"\[\[([^\]]+)\]\]", kv.group(2))
+                    if one:
+                        rec["links"].append(one.group(1).strip())
+                else:
+                    rec[kv.group(1)] = kv.group(2).strip()
+            elif in_links:
+                lm = re.search(r"\[\[([^\]]+)\]\]", line)
+                if lm:
+                    rec["links"].append(lm.group(1).strip())
+        notes[slug] = rec
+    return notes
+
+
 # --- Ollama client (local, no data leaves the machine) ----------------------
 def ollama_generate(prompt, model=None, system=None, options=None, fmt=None,
-                    retries=3, timeout=180):
+                    think=False, retries=3, timeout=180):
     import urllib.request
     host = CONFIG["ollama"]["host"]
     model = model or CONFIG["ollama"]["gen_model"]
     opts = dict(CONFIG["ollama"].get("options", {}))
     if options:
         opts.update(options)
-    payload = {"model": model, "prompt": prompt, "stream": False, "options": opts}
+    # think=False matters for reasoning models (qwen3.5): otherwise hidden
+    # reasoning eats the num_predict budget and the answer comes back empty.
+    payload = {"model": model, "prompt": prompt, "stream": False,
+               "think": think, "options": opts}
     if system:
         payload["system"] = system
     if fmt:
@@ -127,3 +163,42 @@ def ollama_generate(prompt, model=None, system=None, options=None, fmt=None,
             last_err = e
             time.sleep(2 * (attempt + 1))
     raise RuntimeError(f"Ollama generate failed after {retries} tries: {last_err}")
+
+
+def extract_json(text):
+    """Pull the first JSON object/array out of an LLM response, tolerating
+    ```json fences and surrounding prose. Returns the parsed value or raises."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
+        text = re.sub(r"\n?```$", "", text).strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # fall back: find the outermost {...} or [...]
+    for open_c, close_c in (("{", "}"), ("[", "]")):
+        i, j = text.find(open_c), text.rfind(close_c)
+        if 0 <= i < j:
+            try:
+                return json.loads(text[i:j + 1])
+            except json.JSONDecodeError:
+                continue
+    raise ValueError(f"No parseable JSON in: {text[:300]!r}")
+
+
+def ollama_json(prompt, model=None, system=None, options=None, think=False,
+                retries=4, timeout=240):
+    """Generate with format=json and return the parsed object. Retries on both
+    transport and parse failures."""
+    last_err = None
+    for attempt in range(retries):
+        try:
+            raw = ollama_generate(prompt, model=model, system=system,
+                                  options=options, fmt="json", think=think,
+                                  retries=1, timeout=timeout)
+            return extract_json(raw)
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            time.sleep(1.5 * (attempt + 1))
+    raise RuntimeError(f"Ollama JSON failed after {retries} tries: {last_err}")
