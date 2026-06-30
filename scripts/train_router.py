@@ -16,6 +16,7 @@ from pathlib import Path
 
 import common
 import router_common as rc
+import gpu_guard
 
 CFG = common.config()
 AB = CFG["arm_b"]
@@ -86,6 +87,8 @@ def main():
                       lora_dropout=AB["lora"]["dropout"], target_modules=AB["lora"]["target_modules"],
                       task_type="CAUSAL_LM")
     model = get_peft_model(model, lora)
+    if str(device) != "cpu":
+        gpu_guard.ensure_free_for(args.size, "train")   # wait for VRAM headroom before allocating
     model.to(device)
     model.train()
     model.print_trainable_parameters()
@@ -127,6 +130,7 @@ def main():
             "train_minutes": round((time.time() - t0) / 60, 1)}
     (out_dir / "train_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"saved adapter -> {out_dir} ({meta['train_minutes']} min)", flush=True)
+    gpu_guard.release(model, opt)
 
 
 if __name__ == "__main__":

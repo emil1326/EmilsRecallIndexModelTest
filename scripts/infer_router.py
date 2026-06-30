@@ -14,6 +14,7 @@ from pathlib import Path
 
 import common
 import router_common as rc
+import gpu_guard
 
 CFG = common.config()
 AB = CFG["arm_b"]
@@ -25,7 +26,7 @@ def main():
     ap.add_argument("--device", default="auto")
     ap.add_argument("--beams", type=int, default=AB["infer"]["beam_size"])
     ap.add_argument("--topk", type=int, default=AB["infer"]["top_k_out"])
-    ap.add_argument("--batch", type=int, default=192, help="likelihood-scoring batch (VRAM cap)")
+    ap.add_argument("--batch", type=int, default=64, help="likelihood-scoring batch (VRAM cap)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     common.set_seed()
@@ -45,6 +46,8 @@ def main():
     dtype = torch.float16 if str(device) != "cpu" else torch.float32
     model = AutoModelForCausalLM.from_pretrained(base, torch_dtype=dtype)
     model = PeftModel.from_pretrained(model, str(adapter_dir))
+    if str(device) != "cpu":
+        gpu_guard.ensure_free_for(args.size, "infer")   # wait for VRAM headroom (no OOM / single consumer)
     model.to(device).eval()
 
     slugs = (common.path("data_dir") / "slugs.txt").read_text(encoding="utf-8").split()
@@ -69,6 +72,8 @@ def main():
 
     out = args.out or str(common.path("data_dir") / f"preds_router_{args.size}.jsonl")
     common.write_jsonl(out, preds)
+    if str(device) != "cpu":
+        gpu_guard.release(model)
     print(f"-> {out} ({len(preds)} preds). Now: python scripts/eval.py --preds {out} --arm B --label router_{args.size}", flush=True)
 
 

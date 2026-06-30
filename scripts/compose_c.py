@@ -51,6 +51,9 @@ def main():
         out_name = "preds_cxA.jsonl"
         label = "CxA"
     else:
+        import gpu_guard
+        if args.device != "cpu":
+            gpu_guard.ensure_free_for(args.size, "compose-B")
         retr = retrievers.RouterRetriever(size=args.size, device=args.device)
         out_name = f"preds_cxB_{args.size}.jsonl"
         label = f"CxB_{args.size}"

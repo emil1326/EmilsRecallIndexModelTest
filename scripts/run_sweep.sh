@@ -24,7 +24,7 @@ echo "SWEEP START $(date)  sizes=[$SIZES] epochs=$EPOCHS need_free=${NEED_FREE}G
 
 # per-size batch caps -> keep VRAM usage <= 10 GB
 train_batch () { case "$1" in 0.5B) echo 16;; 1.5B) echo 16;; 3B) echo 8;; *) echo 8;; esac; }
-infer_batch () { case "$1" in 0.5B) echo 256;; 1.5B) echo 160;; 3B) echo 96;; *) echo 96;; esac; }
+infer_batch () { case "$1" in 0.5B) echo 64;; 1.5B) echo 48;; 3B) echo 32;; *) echo 32;; esac; }
 
 # free the GPU of any Ollama / llama.cpp runner (single consumer)
 echo "[safety] stopping Ollama + llama-server runners..."
