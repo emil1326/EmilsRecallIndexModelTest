@@ -27,6 +27,7 @@ def main():
     ap.add_argument("--beams", type=int, default=AB["infer"]["beam_size"])
     ap.add_argument("--topk", type=int, default=AB["infer"]["top_k_out"])
     ap.add_argument("--batch", type=int, default=64, help="likelihood-scoring batch (VRAM cap)")
+    ap.add_argument("--pause", type=float, default=0.0, help="seconds to idle between queries (gentle GPU)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     common.set_seed()
@@ -57,24 +58,41 @@ def main():
         return rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk,
                                      batch_size=args.batch)
 
-    preds = []
-    heldout = common.read_jsonl(common.path("data_dir") / "heldout.jsonl")
-    for i, p in enumerate(heldout):
-        preds.append({"query": p["query"], "kind": p["kind"], "gold": [p["slug"]],
-                      "ranked": retrieve(p["query"])})
-        if (i + 1) % 50 == 0:
-            print(f"  heldout {i+1}/{len(heldout)}", flush=True)
+    import time, json
+    out = args.out or str(common.path("data_dir") / f"preds_router_{args.size}.jsonl")
+    # RESUMABLE: skip queries already written (a crash loses nothing — just rerun)
+    done = set()
+    if Path(out).exists():
+        for r in common.read_jsonl(out):
+            done.add(r["query"])
+        print(f"resuming: {len(done)} queries already done", flush=True)
+
+    items = [("single", p) for p in common.read_jsonl(common.path("data_dir") / "heldout.jsonl")]
     mg = common.path("data_dir") / "multigold.jsonl"
     if mg.exists():
-        for p in common.read_jsonl(mg):
-            preds.append({"query": p["query"], "kind": "multi", "gold": p["slugs"],
-                          "ranked": retrieve(p["query"])})
+        items += [("multi", p) for p in common.read_jsonl(mg)]
 
-    out = args.out or str(common.path("data_dir") / f"preds_router_{args.size}.jsonl")
-    common.write_jsonl(out, preds)
+    f = open(out, "a", encoding="utf-8")
+    try:
+        n = 0
+        for kind, p in items:
+            if p["query"] in done:
+                continue
+            gold = [p["slug"]] if kind == "single" else p["slugs"]
+            rec = {"query": p["query"], "kind": p.get("kind", kind) if kind == "single" else "multi",
+                   "gold": gold, "ranked": retrieve(p["query"])}
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            f.flush()
+            n += 1
+            if n % 25 == 0:
+                print(f"  {n} new ({len(done)+n}/{len(items)})", flush=True)
+            if args.pause:
+                time.sleep(args.pause)
+    finally:
+        f.close()
     if str(device) != "cpu":
         gpu_guard.release(model)
-    print(f"-> {out} ({len(preds)} preds). Now: python scripts/eval.py --preds {out} --arm B --label router_{args.size}", flush=True)
+    print(f"-> {out} (+{n} preds, {len(done)+n} total). Now: python scripts/eval.py --preds {out} --arm B --label router_{args.size}", flush=True)
 
 
 if __name__ == "__main__":
