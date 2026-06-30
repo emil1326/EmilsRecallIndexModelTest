@@ -204,24 +204,46 @@ the 0.5B router narrows assoc HIT@1 from 0.00→0.09 but is still ~0.71 short of
 
 ## 8. Related work
 
-**Generative retrieval / DSI.** DSI (Tay et al., 2022) maps query→docid by training a
-single model to *be* the index, generating ids with constrained beam search; HIT@1/HIT@10
-are its standard metrics. Successors improve the identifier (semantic/structured ids;
-n-gram ids with an FM-index, **SEAL**, Bevilacqua et al., 2022; multiview identifiers) and
-handle **dynamic corpora** (**DSI++**, Mehta et al., 2022; **IncDSI**, Kishore et al., 2023;
-**MixLoRA-DSI**, 2025 — rehearsal-free expandable LoRA experts). The 2025 *Survey of
-Generative Information Retrieval* (RUC-NLPIR, TOIS) frames the field. **Generative
-Multi-hop Retrieval** (Lee et al., 2022) is the closest in spirit to our associative test:
-generating a *path* of ids rather than a single nearest neighbour.
+**Generative retrieval / DSI (the architecture of Arm B).** **DSI** — Tay et al., 2022,
+*Transformer Memory as a Differentiable Search Index* (arXiv 2202.06991) — trains one model to
+map `query → docid`, the founding idea here. **SEAL** — Bevilacqua et al., 2022 (arXiv
+2204.10628) — generates substrings as identifiers under an FM-index, the **constrained-decoding**
+technique behind our slug-trie. **NCI** — Wang et al., 2022 (arXiv 2206.02743) — semantic docids
++ beam decoding for ranking. **Scaling** — Pradeep et al., 2023, *How Does Generative Retrieval
+Scale to Millions of Passages?* (arXiv 2305.11841) — shows DSI degrades at scale, i.e. our tiny
+~680-note corpus is the **favourable** regime.
 
-**Agent / personal memory** is a separate, fast-moving field with public benchmarks
-(**LoCoMo**, Maharana et al., 2024; **Mem0**; **MemoryCD**; surveys on memory for
-autonomous LLM agents, 2026). These are overwhelmingly **embedding/RAG** or
-generative-*reconstruction* memory — **not** DSI-style "generate the note-id".
+**Identifier design & multi-answer.** *Multiview Identifiers Enhanced Generative Retrieval*
+(Li et al., 2023, arXiv 2305.16675); *Generative Retrieval Meets Multi-Graded Relevance*
+(arXiv 2409.18409); *Descriptive & Discriminative docids* (AAAI 2024) — relevant to emitting
+**multiple ids** for multi-answer.
 
-**Embedding baseline & fusion.** `multilingual-e5` (Wang et al., 2024) with `query:`/
-`passage:` prefixes; BM25 (Robertson & Zaragoza). Arm C is **RAG-Fusion / multi-query /
-sub-question decomposition** applied to multi-answer personal memory.
+**Dynamic-corpus / continual update** (context for the live system, not this static test):
+**DSI++** (Mehta et al., arXiv 2212.09744), **IncDSI** (arXiv 2307.10323), **PromptDSI**
+(arXiv 2406.12593), **MixLoRA-DSI** (2025, arXiv 2507.09924 — rehearsal-free expandable LoRA
+experts). The 2025 TOIS *Survey of Generative Information Retrieval* (RUC-NLPIR) frames the field.
+
+**Agent / personal memory** — public benchmarks **LoCoMo** (Maharana et al., 2024), **Mem0**,
+**MemoryCD**, plus 2026 surveys on memory for autonomous LLM agents — are overwhelmingly
+**embedding/RAG** or generative-*reconstruction* memory, **not** DSI-style "generate the note-id".
+
+**Baselines (Arm A).** e5 — Wang et al., 2022 (arXiv 2212.03533); multilingual-e5 (arXiv
+2402.05672), with `query:`/`passage:` prefixes; BM25 — Robertson & Zaragoza, 2009. **Arm C** is
+**RAG-Fusion / multi-query / sub-question (least-to-most) decomposition**, a known lever.
+
+**The broader arc — memory in the weights.** This is the *retrieval* layer of a larger
+"parametric memory" vision; the *consolidation* layer (drain working memory into parameters) is
+a distinct but allied mechanism. **Titans** (Behrouz et al., arXiv 2501.00663) — a neural
+long-term memory updated at **test time** by a surprise rule. **SEAL: Self-Adapting LMs** (arXiv
+2506.10943) — the model generates its own finetuning data + self-edits into persistent weights.
+*Do (Language) Models Need Sleep?* (arXiv 2605.26099) — an offline phase drains the KV-cache into
+fast-weights before eviction. **FSC-Net** (arXiv 2511.11707) and **Nested Learning / Hope**
+(multi-timescale optimisation) — hippocampus→neocortex consolidation in LLMs. Our DSI router is
+one concrete instance of "route to memory held in weights."
+
+**Positioning.** Generative retrieval is mature in IR and agent-memory is hot, but generative
+retrieval used as the *index of a small, linked, personal memory*, optimised for **associative +
+multi-answer** recall, is not an established line — that gap is the contribution.
 
 **The gap this probes.** Generative retrieval *as the index of a small, linked, personal
 memory*, optimised for **associative + multi-answer** recall, is not an established line —
