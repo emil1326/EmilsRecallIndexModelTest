@@ -1,0 +1,90 @@
+{
+  "arm": "B",
+  "label": "router_0.5B",
+  "preds": "data/preds_router_0.5B.jsonl",
+  "n_queries": 1139,
+  "overall_single": {
+    "n": 1031,
+    "n_single": 1031,
+    "n_multi": 0,
+    "hit@1": 0.2027,
+    "hit@4": 0.4403,
+    "hit@6": 0.5179,
+    "hit@10": 0.6101,
+    "mrr": 0.3192,
+    "distance_to_bar": {
+      "hit@1_gap": 0.5973,
+      "hit@10_gap": 0.3889,
+      "clears_bar": false
+    }
+  },
+  "multi_answer": {
+    "n": 108,
+    "n_single": 0,
+    "n_multi": 108,
+    "coverage@1": 0.1222,
+    "hit@1_any": 0.5741,
+    "coverage@4": 0.3196,
+    "hit@4_any": 0.8796,
+    "coverage@6": 0.3965,
+    "hit@6_any": 0.9167,
+    "coverage@10": 0.4926,
+    "hit@10_any": 0.9352,
+    "distance_to_bar": {
+      "coverage@10_gap": 0.5064,
+      "clears_coverage_bar": false
+    }
+  },
+  "novel_phrasing": {
+    "n": 1031,
+    "n_single": 1031,
+    "n_multi": 0,
+    "hit@1": 0.2027,
+    "hit@4": 0.4403,
+    "hit@6": 0.5179,
+    "hit@10": 0.6101,
+    "mrr": 0.3192,
+    "distance_to_bar": {
+      "hit@1_gap": 0.5973,
+      "hit@10_gap": 0.3889,
+      "clears_bar": false
+    }
+  },
+  "by_kind": {
+    "symptom": {
+      "n": 656,
+      "n_single": 656,
+      "n_multi": 0,
+      "hit@1": 0.1784,
+      "hit@4": 0.4192,
+      "hit@6": 0.4954,
+      "hit@10": 0.593,
+      "mrr": 0.2959
+    },
+    "assoc": {
+      "n": 375,
+      "n_single": 375,
+      "n_multi": 0,
+      "hit@1": 0.2453,
+      "hit@4": 0.4773,
+      "hit@6": 0.5573,
+      "hit@10": 0.64,
+      "mrr": 0.3601
+    }
+  },
+  "invalid_slug_rate": 0.0,
+  "ci95": {
+    "hit@1": [
+      0.1785,
+      0.2279
+    ],
+    "hit@10": [
+      0.581,
+      0.6402
+    ],
+    "coverage@10": [
+      0.4435,
+      0.5441
+    ]
+  }
+}

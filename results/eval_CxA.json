@@ -13,16 +13,16 @@
     "n": 108,
     "n_single": 0,
     "n_multi": 108,
-    "coverage@1": 0.1614,
-    "hit@1_any": 0.75,
-    "coverage@4": 0.4606,
-    "hit@4_any": 0.9259,
-    "coverage@6": 0.5443,
+    "coverage@1": 0.148,
+    "hit@1_any": 0.6852,
+    "coverage@4": 0.434,
+    "hit@4_any": 0.9167,
+    "coverage@6": 0.5093,
     "hit@6_any": 0.9444,
-    "coverage@10": 0.6255,
-    "hit@10_any": 0.963,
+    "coverage@10": 0.5801,
+    "hit@10_any": 0.9537,
     "distance_to_bar": {
-      "coverage@10_gap": 0.3735,
+      "coverage@10_gap": 0.4189,
       "clears_coverage_bar": false
     }
   },
@@ -36,8 +36,8 @@
   "invalid_slug_rate": 0.0,
   "ci95": {
     "coverage@10": [
-      0.5796,
-      0.6719
+      0.5318,
+      0.6287
     ]
   }
 }

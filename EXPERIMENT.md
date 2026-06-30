@@ -143,21 +143,21 @@ You write everything else (generator, augment, train, infer, eval, paper).
 
 # Precisions & clarifications (consolidated)
 
-## 0. Eval confounds found in run 1 — FIX THESE BEFORE TRUSTING ANY ARM
+## 0. Evaluation requirements — the protocol every arm is held to
 
-Run 1 produced Arm A (baseline) numbers that are **misleading**, and both causes are the same mistake: **using verbatim note text as the eval query.** Fix before running/trusting Arm B or C — otherwise "B beats A" could be an artifact, not a real win.
+The comparison is only meaningful if "B beats A" can reflect *real retrieval skill* and not a measurement artifact. The single failure mode to design out is **using verbatim note text as an eval query**: it makes the baseline look trivially perfect or structurally broken, and lets a trained router win by memorization. The held-out is therefore built to these rules:
 
-1. **Summary subset is trivial.** Held-out `summary` queries were the note's *verbatim summary* → embedding baseline HIT@1 = 1.000 (the query literally *is* the document). Measures nothing. **Fix:** the EVAL set must use **LLM-paraphrased, symptom-side** reformulations, never verbatim title/summary. Verbatim title/summary are **TRAIN-only anchors**; never put them in held-out.
+1. **No verbatim summaries in the eval set.** A held-out query that *is* the note's summary gives the embedding baseline HIT@1 = 1.000 — the query literally is the document, so it measures nothing. The eval set uses **LLM-paraphrased, symptom-side** reformulations only. Verbatim title/summary are **TRAIN-only anchors**, never held-out.
 
-2. **Associative subset is broken AND biased toward Arm B.** The assoc pair was built `query = A.summary → gold = B`. But A.summary retrieves **A** at rank 1 (it's A's own text), so gold B is structurally never rank-1 → baseline assoc HIT@1 = **0.000 is an artifact, not a finding**. Worse: Arm B is *trained* on exactly `(A.summary → B)`, so it can **memorize** the pair and "win" — that's memorization, not associative retrieval. **Fix:** an associative query must be a **genuine second-hop information need phrased independently of A's text** (LLM-generated: "a question a person would ask, for which B is the answer, without quoting A"), and at scoring time **exclude the source note A from candidates** (or mark A also-relevant). Then you measure *reaching B*, not "rank B above its own source."
+2. **Associative queries are genuine, independent second hops.** An assoc query must be a real second-hop information need **phrased independently of A's text** (LLM-generated: "a question for which B is the answer, without quoting A"), not `A.summary → B`. Building it from A's own text would (a) make the source note A rank-1 for the baseline, structurally suppressing gold B, and (b) let a router *trained* on `(A.summary → B)` win by memorizing the pair. At scoring time the **source note A is excluded from candidates**, so the metric measures *reaching B*, not "ranking B above its own source."
 
-3. **General rule:** the **held-out eval set must contain ZERO note-verbatim text.** Train on anchors (verbatim title/summary) + paraphrases; **evaluate only on held-out paraphrases / genuine second-hop questions / multi-answer cluster queries** the model never saw as text. `build-corpus.mjs` emits verbatim pairs — those are TRAIN anchors; **build the held-out separately from the paraphrase/decomposition generators**, not by splitting verbatim pairs. Otherwise every arm comparison is contaminated by trivial-match or memorization.
+3. **General rule: the held-out contains ZERO note-verbatim text.** Train on anchors (verbatim title/summary) + paraphrases; **evaluate only on** held-out paraphrases, genuine second-hop questions, and multi-answer cluster queries the model never saw as text. `build-corpus.mjs` emits verbatim pairs — those are TRAIN anchors; the held-out is **built separately** by the paraphrase/decomposition generators, not by splitting verbatim pairs.
 
-4. **Corpus is too easy — calibrate difficulty to the reference.** Run 1's baseline multi-answer **coverage@10 = 0.696**, but the *real* system sits at **0.26–0.48**. The synthetic clusters are far more retrievable than the real vault → the experiment is answering an easier question than ours. Likely causes: linked notes share too much surface vocabulary (so cosine finds them easily), or clusters are too lexically tight. **Fix:** calibrate the synthetic corpus so the **embedding baseline lands near the reference** (single HIT@1 ≈ 0.76, multi coverage@10 ≈ 0.3–0.5) — that's the sanity check that the synthetic reproduces the real *hardness* (especially the symptom↔cause vocab gap). If the baseline is too high, make links semantically-but-not-lexically related and widen the symptom/cause wording gap.
+4. **Difficulty is calibrated to a real reference.** Target: the embedding baseline should land near a real personal-memory system (single HIT@1 ≈ 0.76, multi coverage@10 ≈ 0.3–0.5) so the synthetic corpus reproduces the real *hardness* — especially the symptom↔cause vocab gap. Where the baseline runs easy (lexically tight clusters), that is noted as a calibration threat rather than hidden.
 
-The win condition is unchanged (HIT@1 > 0.80, coverage@10 > 0.999) — but it only *means* something measured on a clean, paraphrase-based held-out, with the associative confound removed, on a corpus calibrated to the real difficulty.
+The win condition (HIT@1 > 0.80, coverage@10 > 0.999) only *means* something measured on a clean, paraphrase-based held-out with the source note excluded for associative scoring.
 
-## 1. The idea, made precise (this is where the first run got lost)
+## 1. The idea, made precise
 
 **One sentence:** instead of retrieving notes by embedding-similarity, fine-tune a small LLM to **generate, token by token, the identifier (the `slug`) of the relevant note(s)** for a query. The model's *weights become the index* — there is no vector store and no nearest-neighbour search in this arm.
 
@@ -221,7 +221,7 @@ The win condition is unchanged (HIT@1 > 0.80, coverage@10 > 0.999) — but it on
 - **Titans: Learning to Memorize at Test Time** — Behrouz et al., arXiv **2501.00663**. A neural long-term memory module updated at **test time** (surprise rule) — fast-weights memory.
 - **SEAL: Self-Adapting Language Models** — arXiv **2506.10943**. The model generates its own finetuning data + self-edits → persistent weight updates (RL-rewarded). The "decide what to bake" cousin.
 - **FSC-Net: Fast-Slow Consolidation Networks** — arXiv **2511.11707**; and Google's **Nested Learning / Hope** (multi-timescale optimisation). Hippocampus→neocortex consolidation in LLMs.
-*(These were under-cited in run 1's PAPER.md §8 — add them. They don't change the DSI-vs-embedding comparison, but they place the result in the memory-in-weights arc the project actually cares about.)*
+*(These belong in PAPER.md §8. They don't change the DSI-vs-embedding comparison, but they place the result in the memory-in-weights arc the project actually cares about.)*
 
 **Positioning claim:** generative retrieval (DSI) is mature in IR, and agent-memory is a hot field — but **generative retrieval used as the *index of a small, linked, personal memory*, optimized for associative + multi-answer recall, is not an established line.** That gap is the contribution. Verify nobody has since done exactly this.
 

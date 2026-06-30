@@ -10,12 +10,49 @@ Usage: python scripts/aggregate_results.py
 """
 import json
 import glob
+import random
 from pathlib import Path
 
 import common
 
 RES = common.path("results_dir")
+DATA = common.path("data_dir")
 BAR = common.config()["metrics"]["bar"]
+
+
+def _hit(gold, ranked, k, src, kind):
+    """hit@k with the §4.2 source-A exclusion for associative records."""
+    if kind == "assoc" and src and src not in gold:
+        ranked = [s for s in ranked if s != src]
+    return 1.0 if any(g in set(ranked[:k]) for g in gold) else 0.0
+
+
+def paired_bootstrap(arm_a, arm_b, kind, k, n=2000, seed=42):
+    """Paired bootstrap 95% CI on the per-query (B - A) hit@k difference for one subset.
+    Returns {mean, ci, n, significant} or None if either preds file is missing."""
+    pa, pb = DATA / arm_a, DATA / arm_b
+    if not (pa.exists() and pb.exists()):
+        return None
+    A = {r["query"]: r for r in common.read_jsonl(pa)}
+    B = {r["query"]: r for r in common.read_jsonl(pb)}
+    diffs = []
+    for q, a in A.items():
+        b = B.get(q)
+        if not b or a.get("kind") != kind or len(a["gold"]) != 1:
+            continue
+        src, gold = a.get("source"), a["gold"]
+        diffs.append(_hit(gold, b["ranked"], k, src, kind) - _hit(gold, a["ranked"], k, src, kind))
+    if not diffs:
+        return None
+    rng = random.Random(seed)
+    m = len(diffs)
+    stats = []
+    for _ in range(n):
+        stats.append(sum(diffs[rng.randrange(m)] for _ in range(m)) / m)
+    stats.sort()
+    lo, hi = stats[int(0.025 * n)], stats[int(0.975 * n)]
+    return {"mean": round(sum(diffs) / m, 4), "ci95": [round(lo, 4), round(hi, 4)],
+            "n": m, "significant": bool(lo > 0 or hi < 0)}
 
 
 def load(name):
@@ -76,14 +113,26 @@ def main():
         "router_sizes": {l: {"assoc_hit@1": assoc_hit1(l), "assoc_hit@10": assoc_hit10(l),
                              "multi_cov@10": multi_cov10(l)} for l in router_labels},
     }
-    # H1: best router beats baseline on assoc + multi?
+    # H1: point estimates are misleading on a small held-out — use a PAIRED bootstrap
+    # (per-query B-A differences) to decide whether any apparent edge is real.
     if router_labels:
-        b_assoc = assoc_hit10("e5+bm25") or 0
-        best_router_assoc = max((assoc_hit10(l) or 0) for l in router_labels)
-        verdict["H1_assoc_router_beats_baseline"] = best_router_assoc > b_assoc
         b_cov = multi_cov10("e5+bm25") or 0
         best_router_cov = max((multi_cov10(l) or 0) for l in router_labels)
         verdict["H1_multi_router_beats_baseline"] = best_router_cov > b_cov
+        # paired tests vs the e5+bm25 baseline, per router size, for symptom + assoc
+        paired = {}
+        for l in router_labels:
+            pf = f"preds_{l}.jsonl"
+            paired[l] = {
+                f"{kind}_hit@{k}": paired_bootstrap("preds_baseline.jsonl", pf, kind, k)
+                for kind in ("symptom", "assoc") for k in (1, 10)
+            }
+        verdict["paired_vs_baseline"] = paired
+        # H1 is "supported" only if SOME router significantly beats the baseline on assoc
+        verdict["H1_assoc_router_beats_baseline"] = any(
+            (paired[l].get("assoc_hit@10") or {}).get("significant") and
+            (paired[l].get("assoc_hit@10") or {}).get("mean", 0) > 0
+            for l in router_labels)
     # H2: plateau — report assoc@10 by size for inspection
     if len(router_labels) >= 2:
         verdict["H2_assoc_hit@10_by_size"] = {l: assoc_hit10(l) for l in router_labels}

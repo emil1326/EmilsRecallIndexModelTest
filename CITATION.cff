@@ -13,8 +13,7 @@ abstract: >-
   (multilingual-e5-small + BM25) on a small, densely-linked, franglais personal-memory corpus,
   with emphasis on associative (two-hop) and multi-answer recall. Includes a hardened evaluation
   protocol (LLM-generated symptom-side and independent second-hop held-out queries, source-note
-  exclusion, zero train/test leakage) and an honest account of the eval confounds that invalidated
-  a first run.
+  exclusion, zero train/test leakage) and paired-bootstrap significance tests across retrieval arms.
 keywords:
   - generative retrieval
   - differentiable search index
