@@ -58,7 +58,7 @@ def main():
         return rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk,
                                      batch_size=args.batch)
 
-    import time, json
+    import time
     out = args.out or str(common.path("data_dir") / f"preds_router_{args.size}.jsonl")
     # RESUMABLE: skip queries already written (a crash loses nothing — just rerun)
     done = set()
