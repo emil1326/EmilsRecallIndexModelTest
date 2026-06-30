@@ -2,8 +2,9 @@
 
 *An honest, reproducible head-to-head. A negative result is a valid result; the numbers decide.*
 
-> Status: Arm A (baseline) complete. Arm B (generative router) and Arm C (decomposition)
-> results are filled in after their runs — placeholders marked **[TBD]** below.
+> Status: Arm A (baseline), Arm B 0.5B, and Arm C (C×A) complete with real numbers. 1.5B is
+> training (DirectML, gentle); 3B not run on this stack (§10). The verdict below is final for
+> 0.5B and updates when 1.5B lands.
 
 ## Abstract
 
@@ -89,7 +90,8 @@ For each **non-held-out** note, *K*=8 franglais paraphrase queries (varied towar
 question/symptom side) are generated locally (gemma4:e2b on GPU) and added to train.
 Held-out notes are **not** augmented (their summary/assoc stay a clean novel-phrasing
 test); every augmented query is normalised-deduped against the held-out + multi-gold
-queries. Result: **[TBD] augmented pairs**, **[TBD] dropped collisions**.
+queries. Result: **4,610 augmented pairs** (8,378 total train), **8 dropped collisions**,
+**0 leak** into held-out/multi-gold (verified).
 
 ### 4.4 Multi-gold set (coverage@k)
 **108 franglais multi-answer queries** built from the graph — `neighbors` (note + strong
@@ -134,33 +136,71 @@ rank-1 (cosine returns the source note A first), and only ~47 % of the time in t
 Multi-answer coverage@10 ≈ 0.70 sits near the reference system's weak spot. This is exactly
 the gap H1/Arm-C target — and the baseline cannot be beaten on the trivial `summary` subset.
 
-### 5.2 Arm B — generative router (size sweep)  **[TBD]**
+### 5.2 Arm B — generative router
 
-| Size | assoc HIT@1 | assoc HIT@10 | summary HIT@1 | multi cov@10 | invalid-slug |
-|---|---|---|---|---|---|
-| 0.5B | [TBD] | | | | 0 |
-| 1.5B | [TBD] | | | | 0 |
-| 3B | [TBD] | | | | 0 |
+| Size | assoc HIT@1 | assoc HIT@10 | assoc MRR | summary HIT@1 | multi cov@10 | invalid-slug |
+|---|---|---|---|---|---|---|
+| **0.5B** | **0.088** | 0.401 | **0.169** | 0.074 | 0.554 | **0** |
+| 1.5B | *(running — DirectML, gentle batch-4 training)* | | | | | 0 |
+| 3B | *not run (DirectML memory/power limits — see §10)* | | | | | |
 
-### 5.3 Arm C — decomposition × {A, B} (multi-answer coverage)  **[TBD]**
+**vs baseline (Arm A):** assoc HIT@1 0.000, MRR 0.140, HIT@10 0.468; summary HIT@1 1.000;
+multi cov@10 0.696. So the 0.5B router **beats the baseline on assoc HIT@1 (0.088 vs 0.000)
+and assoc MRR (0.169 vs 0.140)** — the associative-routing signal — but **loses** on assoc
+HIT@10, on the trivial summary lookup, and on multi-answer coverage. Invalid-slug rate is
+**0** by construction (likelihood ranking over the slug set).
+
+The training loss plateaued high (8.36→7.55 over 4 epochs), and summary HIT@1 is only 0.074
+— i.e. the 0.5B model can barely retrieve a note even from its *own* summary. So 0.5B is an
+**underpowered** test of the router: it confirms the *mechanism* (rank-1 associative routing
+the embedding baseline structurally cannot do) but is too small to realise it into a broad
+win. Whether scale closes the gap is the H2 question (1.5B in progress).
+
+### 5.3 Arm C — decomposition × {A, B} (multi-answer coverage)
 
 | Arm | cov@1 | cov@4 | cov@6 | cov@10 | decomposer topic-recall |
 |---|---|---|---|---|---|
-| A (no decomposition) | 0.183 | 0.516 | 0.620 | 0.696 | — |
-| B | [TBD] | | | | — |
-| C×A | [TBD] | | | | [TBD] |
-| C×B | [TBD] | | | | [TBD] |
+| **A** (no decomposition) | 0.183 | 0.516 | 0.620 | **0.696** | — |
+| **C×A** (decompose → e5+BM25 → union) | — | 0.461 | 0.544 | 0.626 | **0.981** |
+| C×B | *(pending router)* | | | | |
 
-## 6. Distance to the bar (per subset)  **[TBD]**
+**Decomposition did not help.** C×A coverage@10 (0.626) is *below* running the holistic query
+through the baseline (0.696), even though the decomposer's topic-recall is excellent (0.98 —
+it rarely misses a sub-topic). The multilingual e5 baseline already handles the multi-topic
+query well; splitting it into ~3.15 sub-queries and round-robin-unioning the top hits added
+noise rather than coverage. A clean negative for decomposition on this corpus.
 
-For each arm × size × subset, the gap to (HIT@1 0.80 / HIT@10 0.999 / coverage@10 0.999),
-and whether any configuration clears it.
+## 6. Distance to the bar (per subset)
 
-## 7. Verdict  **[TBD]**
+Bar: HIT@1 > 0.80, HIT@10 / coverage@10 > 0.999.
 
-- **H1** (router beats baseline on assoc + multi-answer): [TBD — proven / disproven, with numbers]
-- **H2** (size plateau): [TBD — where, if anywhere, recall plateaus]
-- **Arm C** (does decomposition lift multi-answer coverage toward the bar): [TBD]
+| Subset | Best config | HIT@1 (gap) | HIT@10 / cov@10 (gap) | Clears bar? |
+|---|---|---|---|---|
+| summary (direct) | A (baseline) | 1.000 (cleared) | 1.000 (cleared) | **yes** — but trivial subset |
+| **assoc** (two-hop) | B @1 / A @10 | 0.088 (−0.71) | 0.468 (−0.53) | no |
+| **multi** (coverage) | A | — | 0.696 (−0.30) | no |
+
+Only the **trivial** summary subset (query = the note's verbatim summary) clears the bar, and
+the baseline owns it. On the subsets that matter — **associative** and **multi-answer** — no
+arm comes close: the baseline is ~0.53 short on assoc HIT@10 and ~0.30 short on coverage@10;
+the 0.5B router narrows assoc HIT@1 from 0.00→0.09 but is still ~0.71 short of 0.80.
+
+## 7. Verdict
+
+- **H1 — not supported at 0.5B (with a real caveat).** The router does **not** broadly beat
+  the embedding baseline. Its *only* wins are **assoc HIT@1 (0.088 vs 0.000)** and **assoc MRR
+  (0.169 vs 0.140)** — exactly the associative routing the baseline cannot do (it returns the
+  source note A first, so its assoc HIT@1 is structurally 0). That confirms the *mechanism* but
+  not the hypothesis: at 0.5B the router loses on recall@10, the trivial summary lookup, and
+  multi-answer coverage. The 0.5B model is underpowered (summary HIT@1 0.074; loss plateaued at
+  7.55), so this is a weak test — **1.5B is in progress** to see whether scale turns the rank-1
+  advantage into a broad win.
+- **H2 — not yet answerable.** With only 0.5B complete no plateau can be claimed; 3B was not
+  feasible on the available DirectML stack (§10). The 0.5B↔1.5B comparison is the size-scaling
+  evidence we can offer.
+- **Arm C — decomposition does NOT lift coverage here.** C×A coverage@10 (0.626) is *below* the
+  holistic baseline (0.696) despite 0.98 decomposer topic-recall. On a strong multilingual
+  embedding retriever, splitting + unioning hurt rather than helped.
 
 ## 8. Related work
 
@@ -209,11 +249,31 @@ in `results/results.json`.
 - **Assoc construction.** `A.summary → B` makes the source note A rank-1 for the baseline
   (it *is* the query text), which depresses assoc HIT@1; the router is scored identically
   (same queries, same metric code), so the comparison is fair.
-- **DirectML / RDNA4 power stability.** A concurrent dual-GPU load (Ollama + DirectML) once
-  triggered an unexpected power-off; runs are serialised to a single GPU consumer.
+- **DirectML / RDNA4 limits shaped the sweep.** Two unexpected hard power-offs (instant cut,
+  no BSOD/WHEA/thermal log) occurred under DirectML compute on the RX 9070 XT — consistent with
+  PSU transient-spike protection; mitigated by small batches + breathers + a single GPU
+  consumer (a full 0.5B inference then ran clean). Separately, DirectML's allocator OOMs on the
+  152k-vocab cross-entropy loss above batch ~4, forcing tiny micro-batches (slow) and a
+  memory-efficient `logsumexp` scoring rewrite. Net effect: **0.5B completed; 1.5B is slow but
+  feasible; 3B was not run on this stack.** A CUDA GPU (cloud) would remove both limits and is
+  the recommended path to the full 0.5/1.5/3B plateau curve. This is a *hardware-availability*
+  threat to H2, not a methodological one.
 
 ## 11. Implications for a real personal-memory system
 
-[TBD after results — what the associative/multi-answer numbers imply for whether a
-generative router (or decomposition in front of the existing embedding daemon) is worth
-adopting for the real vault.]
+On this evidence, **a small generative router should not replace the embedding daemon** for a
+real vault. The embedding baseline is unbeatable on direct lookup and stronger on broad recall
+and multi-answer coverage, at a fraction of the inference cost (one ANN query vs. scoring the
+whole slug vocabulary per query). The generative router's one genuine, repeatable edge is
+**rank-1 associative routing** — surfacing the *linked* note B from a query about A, which
+cosine structurally cannot do because it returns A itself first. At 0.5B that edge is real but
+small and comes with large regressions elsewhere.
+
+So the actionable read is **hybrid, not replacement**: keep e5+BM25 for recall, and consider a
+generative router only as a *re-ranker for the associative/two-hop slice*, where the embedding
+system is provably blind — and only if a larger model (1.5B+) turns the 0.09 rank-1 signal into
+something decisive (open, pending the size sweep). **Query decomposition is not worth adopting
+here** — it lowered coverage on top of a strong multilingual retriever despite near-perfect
+topic-recall. The most promising next experiment is the same probe at 1.5B/3B on a CUDA GPU,
+plus an *embedding-recall → router-rerank* hybrid evaluated specifically on the associative
+subset.
