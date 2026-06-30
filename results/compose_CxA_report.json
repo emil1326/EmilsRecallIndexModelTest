@@ -1,0 +1,7 @@
+{
+  "arm": "CxA",
+  "queries": 108,
+  "avg_subqueries": 3.15,
+  "decomposer_topic_recall": 0.9815,
+  "per_sub": 6
+}

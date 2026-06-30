@@ -1,0 +1,43 @@
+{
+  "arm": "C",
+  "label": "CxA",
+  "preds": "data/preds_cxA.jsonl",
+  "n_queries": 108,
+  "overall_single": {
+    "n": 0,
+    "n_single": 0,
+    "n_multi": 0,
+    "distance_to_bar": {}
+  },
+  "multi_answer": {
+    "n": 108,
+    "n_single": 0,
+    "n_multi": 108,
+    "coverage@1": 0.1614,
+    "hit@1_any": 0.75,
+    "coverage@4": 0.4606,
+    "hit@4_any": 0.9259,
+    "coverage@6": 0.5443,
+    "hit@6_any": 0.9444,
+    "coverage@10": 0.6255,
+    "hit@10_any": 0.963,
+    "distance_to_bar": {
+      "coverage@10_gap": 0.3735,
+      "clears_coverage_bar": false
+    }
+  },
+  "novel_phrasing": {
+    "n": 0,
+    "n_single": 0,
+    "n_multi": 0,
+    "distance_to_bar": {}
+  },
+  "by_kind": {},
+  "invalid_slug_rate": 0.0,
+  "ci95": {
+    "coverage@10": [
+      0.5796,
+      0.6719
+    ]
+  }
+}

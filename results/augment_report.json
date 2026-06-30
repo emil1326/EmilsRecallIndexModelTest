@@ -1,0 +1,9 @@
+{
+  "k": 8,
+  "model": "gemma4:e2b",
+  "augmented_notes": 577,
+  "augment_pairs": 4610,
+  "dropped_collisions": 8,
+  "train_pairs": 3768,
+  "train_aug_pairs": 8378
+}

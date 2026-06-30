@@ -1,0 +1,6 @@
+{
+  "model": "qwen3.5:9b",
+  "max_k": 5,
+  "queries": 108,
+  "avg_subqueries": 3.15
+}

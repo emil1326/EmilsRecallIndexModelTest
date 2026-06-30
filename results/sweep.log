@@ -1,0 +1,182 @@
+====================================================================
+SWEEP START Mon Jun 29 21:21:57     2026  sizes=[0.5B 1.5B] epochs=4 need_free=12GB
+[safety] stopping Ollama + llama-server runners...
+
+>>> [21:22:00] TRAIN 0.5B (epochs=4 batch=16)
+[vram 21:22] only 11.9GB free (need 12) — GPU busy, waiting 180s (80 left)...
+[vram 21:25] only 11.9GB free (need 12) — GPU busy, waiting 180s (79 left)...
+[vram 21:28] only 11.9GB free (need 12) — GPU busy, waiting 180s (78 left)...
+[vram 21:31] only 11.8GB free (need 12) — GPU busy, waiting 180s (77 left)...
+[vram 21:34] only 11.9GB free (need 12) — GPU busy, waiting 180s (76 left)...
+[vram 21:37] only 11.9GB free (need 12) — GPU busy, waiting 180s (75 left)...
+[vram 21:40] only 11.9GB free (need 12) — GPU busy, waiting 180s (74 left)...
+[vram 21:43] only 11.9GB free (need 12) — GPU busy, waiting 180s (73 left)...
+[vram 21:46] only 11.9GB free (need 12) — GPU busy, waiting 180s (72 left)...
+[vram 21:49] only 11.9GB free (need 12) — GPU busy, waiting 180s (71 left)...
+[vram 21:52] only 11.9GB free (need 12) — GPU busy, waiting 180s (70 left)...
+[vram 21:55] only 11.9GB free (need 12) — GPU busy, waiting 180s (69 left)...
+[vram 21:58] only 11.9GB free (need 12) — GPU busy, waiting 180s (68 left)...
+[vram 22:01] only 11.9GB free (need 12) — GPU busy, waiting 180s (67 left)...
+[vram 22:04] only 11.9GB free (need 12) — GPU busy, waiting 180s (66 left)...
+====================================================================
+SWEEP START Mon Jun 29 22:06:35     2026  sizes=[0.5B 1.5B] epochs=4 need_free=10GB
+[safety] stopping Ollama + llama-server runners...
+
+>>> [22:06:38] TRAIN 0.5B (epochs=4 batch=16)
+[vram] 11.9GB free (>=10) OK -> go
+device=privateuseone:0 size=0.5B
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+8378 training examples
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  69%|######8   | 200/290 [00:00<00:00, 1985.07it/s]Loading weights: 100%|##########| 290/290 [00:00<00:00, 1758.54it/s]
+F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\optim\adamw.py:529: UserWarning: The operator 'aten::lerp.Scalar_out' is not currently supported on the DML backend and will fall back to run on the CPU. This may have performance implications. (Triggered internally at C:\__w\1\s\pytorch-directml-plugin\torch_directml\csrc\dml\dml_cpu_fallback.cpp:17.)
+  torch._foreach_lerp_(device_exp_avgs, device_grads, 1 - beta1)
+trainable params: 8,798,208 || all params: 638,965,632 || trainable%: 1.3769
+epoch 1/4 loss=8.3595 (612s)
+epoch 2/4 loss=7.6270 (1209s)
+epoch 3/4 loss=7.5758 (1803s)
+epoch 4/4 loss=7.5485 (2400s)
+saved adapter -> F:\vsCode\EmilsRecallIndexModelTest\runs\router_0.5B (40.0 min)
+
+>>> [22:46:53] INFER 0.5B (likelihood, batch=256)
+[vram] 11.8GB free (>=10) OK -> go
+device=privateuseone:0 base=Qwen/Qwen2.5-0.5B adapter=F:\vsCode\EmilsRecallIndexModelTest\runs\router_0.5B
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  74%|#######4  | 216/290 [00:00<00:00, 2144.44it/s]Loading weights: 100%|##########| 290/290 [00:00<00:00, 2234.47it/s]
+Traceback (most recent call last):
+  File "F:\vsCode\EmilsRecallIndexModelTest\scripts\infer_router.py", line 76, in <module>
+    main()
+  File "F:\vsCode\EmilsRecallIndexModelTest\scripts\infer_router.py", line 61, in main
+    "ranked": retrieve(p["query"])})
+  File "F:\vsCode\EmilsRecallIndexModelTest\scripts\infer_router.py", line 54, in retrieve
+    return rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk,
+  File "F:\vsCode\EmilsRecallIndexModelTest\scripts\router_common.py", line 90, in rank_by_likelihood
+    logits = model(input_ids=input_ids.to(device), attention_mask=attn.to(device)).logits
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\peft\peft_model.py", line 1993, in forward
+    return self.base_model(
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\peft\tuners\tuners_utils.py", line 330, in forward
+    return self.model.forward(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\transformers\utils\generic.py", line 907, in wrapper
+    output = func(self, *args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\transformers\models\qwen2\modeling_qwen2.py", line 475, in forward
+    logits = self.lm_head(hidden_states[:, slice_indices, :])
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\linear.py", line 117, in forward
+    return F.linear(input, self.weight, self.bias)
+RuntimeError: unknown error
+!! infer 0.5B failed
+
+>>> [22:47:12] TRAIN 1.5B (epochs=4 batch=16)
+[vram] 11.8GB free (>=10) OK -> go
+device=privateuseone:0 size=1.5B
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+8378 training examples
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/338 [00:00<?, ?it/s]Loading weights:  26%|##5       | 87/338 [00:00<00:00, 846.54it/s]Loading weights:  51%|#####     | 172/338 [00:00<00:00, 800.84it/s]Loading weights:  75%|#######5  | 255/338 [00:00<00:00, 802.19it/s]Loading weights: 100%|##########| 338/338 [00:00<00:00, 836.74it/s]
+trainable params: 18,464,768 || all params: 1,795,552,768 || trainable%: 1.0284
+Traceback (most recent call last):
+  File "F:\vsCode\EmilsRecallIndexModelTest\scripts\train_router.py", line 133, in <module>
+    main()
+  File "F:\vsCode\EmilsRecallIndexModelTest\scripts\train_router.py", line 111, in main
+    out = model(input_ids=input_ids, attention_mask=attn, labels=labels)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\peft\peft_model.py", line 1993, in forward
+    return self.base_model(
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\modules\module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\peft\tuners\tuners_utils.py", line 330, in forward
+    return self.model.forward(*args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\transformers\utils\generic.py", line 907, in wrapper
+    output = func(self, *args, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\transformers\models\qwen2\modeling_qwen2.py", line 479, in forward
+    loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\transformers\loss\loss_utils.py", line 70, in ForCausalLMLoss
+    loss = fixed_cross_entropy(logits, shift_labels, num_items_in_batch, ignore_index, **kwargs)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\transformers\loss\loss_utils.py", line 40, in fixed_cross_entropy
+    loss = nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction=reduction)
+  File "F:\vsCode\EmilsRecallIndexModelTest\.venv-dml\lib\site-packages\torch\nn\functional.py", line 3104, in cross_entropy
+    return torch._C._nn.cross_entropy_loss(input, target, weight, _Reduction.get_enum(reduction), ignore_index, label_smoothing)
+RuntimeError: Could not allocate tensor with 1837967464 bytes. There is not enough GPU video memory available!
+!! train 1.5B failed
+
+>>> [22:48:52] COMPOSE C x A (e5+bm25, CPU)
+  25/108
+  50/108
+  75/108
+  100/108
+{
+  "arm": "CxA",
+  "queries": 108,
+  "avg_subqueries": 3.15,
+  "decomposer_topic_recall": 0.9815,
+  "per_sub": 6
+}
+-> F:\vsCode\EmilsRecallIndexModelTest\data\preds_cxA.jsonl. Now: python scripts/eval.py --preds F:\vsCode\EmilsRecallIndexModelTest\data\preds_cxA.jsonl --arm C --label CxA
+{
+  "arm": "C",
+  "label": "CxA",
+  "preds": "data/preds_cxA.jsonl",
+  "n_queries": 108,
+  "overall_single": {
+    "n": 0,
+    "n_single": 0,
+    "n_multi": 0,
+    "distance_to_bar": {}
+  },
+  "multi_answer": {
+    "n": 108,
+    "n_single": 0,
+    "n_multi": 108,
+    "coverage@1": 0.1614,
+    "hit@1_any": 0.75,
+    "coverage@4": 0.4606,
+    "hit@4_any": 0.9259,
+    "coverage@6": 0.5443,
+    "hit@6_any": 0.9444,
+    "coverage@10": 0.6255,
+    "hit@10_any": 0.963,
+    "distance_to_bar": {
+      "coverage@10_gap": 0.3735,
+      "clears_coverage_bar": false
+    }
+  },
+  "novel_phrasing": {
+    "n": 0,
+    "n_single": 0,
+    "n_multi": 0,
+    "distance_to_bar": {}
+  },
+  "by_kind": {},
+  "invalid_slug_rate": 0.0,
+  "ci95": {
+    "coverage@10": [
+      0.5796,
+      0.6719
+    ]
+  }
+}
+
+-> results/eval_CxA.json
+
+>>> [22:50:17] COMPOSE C x B (router 0.5B)
+[vram] 11.8GB free (>=10) OK -> go
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  71%|#######1  | 207/290 [00:00<00:00, 2055.17it/s]Loading weights: 100%|##########| 290/290 [00:00<00:00, 2104.44it/s]
