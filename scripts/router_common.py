@@ -62,6 +62,43 @@ class SlugTrie:
         return list(node.keys())
 
 
+def rank_by_likelihood(model, tok, query, trie, device, k=10, batch_size=96):
+    """Exact constrained ranking for a SMALL corpus: score every valid slug's token
+    sequence under the model (teacher forcing) and rank by total log-prob. Guarantees
+    only valid slugs (no hallucination, invalid-rate=0) without beam-search fragility.
+
+    Returns the top-k slugs (highest likelihood first)."""
+    import torch
+    import torch.nn.functional as F
+
+    prompt_ids = tok.encode(format_prompt(query), add_special_tokens=False)
+    P = len(prompt_ids)
+    slugs = list(trie.seqs.keys())
+    pad_id = tok.pad_token_id if tok.pad_token_id is not None else tok.eos_token_id
+
+    scores = {}
+    for i in range(0, len(slugs), batch_size):
+        chunk = slugs[i:i + batch_size]
+        seqs = [prompt_ids + trie.seqs[s] for s in chunk]  # trie.seqs includes trailing EOS
+        maxlen = max(len(s) for s in seqs)
+        input_ids = torch.full((len(chunk), maxlen), pad_id, dtype=torch.long)
+        attn = torch.zeros((len(chunk), maxlen), dtype=torch.long)
+        for r, s in enumerate(seqs):
+            input_ids[r, :len(s)] = torch.tensor(s)
+            attn[r, :len(s)] = 1
+        with torch.no_grad():
+            logits = model(input_ids=input_ids.to(device), attention_mask=attn.to(device)).logits
+            logprobs = F.log_softmax(logits.float(), dim=-1).cpu()
+        for r, s in enumerate(chunk):
+            tgt = trie.seqs[s]                       # slug tokens + EOS
+            total = 0.0
+            for j in range(len(tgt)):
+                pos = P + j - 1                      # logits at pos predict token at pos+1
+                total += logprobs[r, pos, tgt[j]].item()
+            scores[s] = total / len(tgt)             # length-normalized log-prob
+    return [s for s, _ in sorted(scores.items(), key=lambda x: -x[1])[:k]]
+
+
 def make_prefix_allowed_fn(trie, prompt_len_by_batch):
     """Build a prefix_allowed_tokens_fn for HF generate. prompt_len_by_batch maps the
     flat beam/batch index handling to the prompt length so we only constrain the

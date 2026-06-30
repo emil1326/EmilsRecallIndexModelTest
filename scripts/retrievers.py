@@ -83,21 +83,5 @@ class RouterRetriever:
         self.max_new = max(len(v) for v in self.trie.seqs.values()) + 1
 
     def rank(self, query, k=10):
-        rc = self.rc
-        enc = self.tok(rc.format_prompt(query), return_tensors="pt").to(self.device)
-        plen = enc["input_ids"].shape[1]
-        fn = rc.make_prefix_allowed_fn(self.trie, plen)
-        with self.torch.no_grad():
-            gen = self.model.generate(
-                **enc, num_beams=self.beams, num_return_sequences=self.beams,
-                max_new_tokens=self.max_new, prefix_allowed_tokens_fn=fn,
-                do_sample=False, pad_token_id=self.tok.pad_token_id)
-        ranked, seen = [], set()
-        for seq in gen:
-            t = self.tok.decode(seq[plen:], skip_special_tokens=True).strip()
-            if t in self.slug_set and t not in seen:
-                seen.add(t)
-                ranked.append(t)
-            if len(ranked) >= k:
-                break
-        return ranked
+        return self.rc.rank_by_likelihood(self.model, self.tok, query, self.trie,
+                                          self.device, k=k)

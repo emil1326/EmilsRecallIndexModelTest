@@ -48,29 +48,9 @@ def main():
 
     slugs = (common.path("data_dir") / "slugs.txt").read_text(encoding="utf-8").split()
     trie = rc.SlugTrie(slugs, tok, tok.eos_token_id)
-    max_new = max(len(v) for v in trie.seqs.values()) + 1
-    slug_set = set(slugs)
 
-    @torch.no_grad()
     def retrieve(query):
-        prompt = rc.format_prompt(query)
-        enc = tok(prompt, return_tensors="pt").to(device)
-        plen = enc["input_ids"].shape[1]
-        fn = rc.make_prefix_allowed_fn(trie, plen)
-        gen = model.generate(
-            **enc, num_beams=args.beams, num_return_sequences=min(args.beams, max(args.topk, args.beams)),
-            max_new_tokens=max_new, prefix_allowed_tokens_fn=fn,
-            do_sample=False, early_stopping=True, pad_token_id=tok.pad_token_id,
-        )
-        ranked, seen = [], set()
-        for seq in gen:
-            text = tok.decode(seq[plen:], skip_special_tokens=True).strip()
-            if text in slug_set and text not in seen:
-                seen.add(text)
-                ranked.append(text)
-            if len(ranked) >= args.topk:
-                break
-        return ranked
+        return rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk)
 
     preds = []
     heldout = common.read_jsonl(common.path("data_dir") / "heldout.jsonl")

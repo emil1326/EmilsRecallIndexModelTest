@@ -1,0 +1,10 @@
+{
+  "torch": "2.4.1+cpu",
+  "directml_device_count": 1,
+  "device_name": "AMD Radeon RX 9070 XT\u0000",
+  "matmul_max_err": 0.0001068115234375,
+  "matmul_ok": true,
+  "matmul_gflops": 3297.8,
+  "transformers": "5.12.1",
+  "peft": "0.19.1"
+}

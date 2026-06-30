@@ -68,9 +68,11 @@ def main():
     if tok.pad_token_id is None:
         tok.pad_token = tok.eos_token
 
-    pairs = common.read_jsonl(args.data)
-    if not Path(args.data).exists() or not pairs:
-        pairs = common.read_jsonl(common.path("data_dir") / "train.jsonl")
+    data_path = Path(args.data)
+    if not data_path.exists():
+        data_path = common.path("data_dir") / "train.jsonl"
+        print(f"(train_aug.jsonl not found -> using {data_path.name})", flush=True)
+    pairs = common.read_jsonl(data_path)
     random.shuffle(pairs)
     if args.limit:
         pairs = pairs[: args.limit]
@@ -116,6 +118,7 @@ def main():
 
     out_dir = common.path("runs_dir") / f"router_{args.size}"
     out_dir.mkdir(parents=True, exist_ok=True)
+    model.to("cpu")  # DirectML tensors are OpaqueTensorImpl -> peft save can't read storage
     model.save_pretrained(str(out_dir))
     tok.save_pretrained(str(out_dir))
     meta = {"base": base, "size": args.size, "device": str(device), "epochs": args.epochs,
