@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: "EmilsRecallIndex: Generative-Retrieval Memory Router vs. Embedding Retrieval on a Small Linked Franglais Personal-Memory Corpus"
+message: "If you use this work, please cite it."
+type: software
+authors:
+  - family-names: Devauchelle
+    given-names: Emilien
+    alias: emil1326
+repository-code: "https://github.com/emil1326/EmilsRecallIndexModelTest"
+abstract: >-
+  A reproducible experiment testing whether a small LLM fine-tuned as a generative retriever
+  (Differentiable Search Index; query -> note slug) beats a strong embedding-retrieval baseline
+  (multilingual-e5-small + BM25) on a small, densely-linked, franglais personal-memory corpus,
+  with emphasis on associative (two-hop) and multi-answer recall. Includes a hardened evaluation
+  protocol (LLM-generated symptom-side and independent second-hop held-out queries, source-note
+  exclusion, zero train/test leakage) and an honest account of the eval confounds that invalidated
+  a first run.
+keywords:
+  - generative retrieval
+  - differentiable search index
+  - DSI
+  - personal memory
+  - associative retrieval
+  - embedding retrieval
+  - LoRA
+  - franglais
+license: LicenseRef-PolyForm-Noncommercial-1.0.0
+date-released: 2026-06-30
+version: "1.0-run2"

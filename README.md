@@ -1,105 +1,113 @@
-# EmilsRecallIndex — Generative-retrieval memory router vs embedding retrieval
+# EmilsRecallIndex
 
-A self-contained, reproducible experiment testing whether a small LLM fine-tuned as a
-**generative retriever** (query → note-slug, à la DSI / Differentiable Search Index)
-can beat a strong **embedding-retrieval** baseline (`multilingual-e5-small` + BM25) on a
-small, densely-linked, *franglais* personal-memory corpus — **especially on associative
-("two-hop") and multi-answer queries**, where embedding retrieval is documented to be weak.
+**Can a small LLM fine-tuned as a _generative retriever_ (`query → note-id`, à la DSI) beat a strong
+embedding baseline on a small, densely-linked, _franglais_ personal-memory corpus — especially on
+associative ("two-hop") and multi-answer recall, where embedding retrieval is documented to be weak?**
 
-Everything here runs on a synthetic corpus (no real personal data), so the whole repo is
-shareable. See **[`paper/PAPER.md`](paper/PAPER.md)** for the writeup and verdict, and
-**[`results/results.json`](results/results.json)** for the raw numbers.
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm--NC--1.0.0-blue.svg)](LICENSE)
+![data: 100% synthetic](https://img.shields.io/badge/data-100%25%20synthetic-green.svg)
+![status: reproducible](https://img.shields.io/badge/reproducible-seed%2042-orange.svg)
 
-> Full brief: [`EXPERIMENT.md`](EXPERIMENT.md).
+A self-contained, reproducible experiment that pits three retrieval arms against each other on the
+**same clean held-out**, with the evaluation deliberately hardened against the confounds that quietly
+break this kind of comparison. A negative result is a valid result here — the numbers decide.
+
+📄 **Writeup & verdict → [`paper/PAPER.md`](paper/PAPER.md)**  ·  🧪 **Original brief → [`EXPERIMENT.md`](EXPERIMENT.md)**  ·  🔧 **Precisions that drove Run 2 → [`EXPERIMENTPRECISIONS.md`](EXPERIMENTPRECISIONS.md)**
+
+---
 
 ## The three arms
 
-| Arm | What | Runs on |
-|-----|------|---------|
-| **A** | Embedding retrieval baseline — e5-small dense + BM25 hybrid (the bar to beat) | CPU |
-| **B** | Generative router (DSI) — LoRA fine-tune, `query → slug`; inference ranks every valid slug by likelihood (0 hallucinated ids) | AMD RX 9070 XT via **DirectML** |
-| **C** | Query decomposer — splits a multi-answer query into K single-target sub-queries, composed in front of A *or* B | Ollama (local) + A/B |
+| Arm | Idea | Where it runs |
+|-----|------|---------------|
+| **A — Embedding baseline** | `multilingual-e5-small` dense + BM25, cosine → top-k slugs. No training. The bar to beat. | CPU |
+| **B — Generative router (DSI)** | LoRA-fine-tune a small LM to emit the note **slug** from a query; the *weights become the index*. Inference ranks every valid slug by likelihood — **0 hallucinated ids** by construction. | AMD RX 9070 XT via DirectML |
+| **C — Query decomposition** | Split a multi-answer query into _K_ single-target sub-queries, retrieve each via A or B, union → coverage. Composes with A or B. | local LLM + A/B |
 
-## The bar (north-star)
+## Results — clean held-out (Run 2)
 
-The goal isn't merely to beat the baseline — it's the most precise personal-memory
-retrieval achievable. Target, on every subset: **HIT@1 > 0.80** and **HIT@10 / coverage@10
-> 0.999**. The paper reports the distance to this bar for each arm × model-size × subset.
+Evaluated on **1,031 LLM-generated, never-trained** held-out queries (656 symptom-side + 375
+independent second-hop), source note excluded for associative scoring. Honest, beatable numbers:
+
+| Subset | metric | **Arm A (baseline)** |
+|---|---|---|
+| symptom (cause↔symptom gap) | HIT@1 / HIT@10 / MRR | 0.401 / 0.669 / 0.492 |
+| associative (independent 2-hop) | HIT@1 / HIT@10 / MRR | 0.275 / 0.579 / 0.374 |
+| multi-answer | coverage@10 | 0.677 |
+
+Invalid-slug rate **0**. Arm B (0.5B router) and Arm C numbers, the size-scaling (H2) question, and
+the full verdict are in [`paper/PAPER.md`](paper/PAPER.md). *(Larger router sizes (1.5B/3B) need a CUDA
+GPU — DirectML hit a hard memory wall on the 152k-vocab loss; see the paper's threats section.)*
+
+## Why the evaluation is trustworthy
+
+This is the part most easily gotten wrong, and the first run **did** get it wrong — documented honestly
+in [`paper/PAPER.md` §10.1](paper/PAPER.md):
+
+- **Verbatim text is train-only.** Note titles/summaries anchor the model in training; they are **never**
+  used as eval queries (otherwise the query *is* the document → a meaningless HIT@1 = 1.000).
+- **Held-out queries are generated, not split.** A Sonnet workflow writes **symptom-side** paraphrases
+  (different words than the note) and **independent second-hop** questions (answer = the *linked* note,
+  without quoting the source) — zero verbatim text, never seen in training.
+- **Associative scoring excludes the source note A**, so it measures *reaching the linked B*, not
+  "ranking B above its own text."
+- **0 train/test leakage**, verified; same metric code for every arm.
+
+## Corpus (synthetic — no real data)
+
+~**672 franglais notes** (French prose + English technical terms), 28 topic clusters, a dense semantic
+`[[wikilink]]` graph (≈4.4 links/note, hubs, 0 dangling). Generated by **(i)** a short natural
+conversation distilled into opinionated voice-anchor notes and **(ii)** a 28-agent Sonnet workflow that
+expanded each cluster. Everything is fabricated; it's committed and shareable.
+
+## Reproduce
+
+Prereqs: Python 3.10, Node 22, [Ollama](https://ollama.com) ≥ 0.30.11 (bundles ROCm v7.1 — auto-detects
+RDNA4/gfx1201 with zero config; the stock installer's ROCm 6.4.2 silently falls back to CPU), and an
+AMD GPU with DirectML for Arm B.
+
+```bash
+python -m pip install -r requirements.txt          # CPU stack: baseline, eval, generation, Arm C
+
+# corpus: the committed corpus/ is canonical. To rebuild from the Sonnet output:
+python scripts/assemble_corpus.py                  # -> corpus/vault + manifest + stats
+
+# pairs (anchors) + clean held-out + multi-gold
+node scripts/build_corpus.mjs --vault corpus/vault --anchors-only   # all verbatim -> train anchors
+python scripts/prep_qgen.py                         # per-cluster inputs for the query workflow
+#   (held-out + train queries come from a Sonnet workflow over those inputs; processed by:)
+python scripts/process_queries.py                   # -> data/heldout.jsonl + train_aug.jsonl (0 leak)
+python scripts/build_multigold.py
+
+# Arm A baseline + eval
+python scripts/baseline_embed.py
+python scripts/eval.py --preds data/preds_baseline.jsonl --arm A --label e5+bm25
+
+# Arm B (separate DirectML venv) — single GPU consumer, VRAM-guarded
+py -3.10 -m venv .venv-dml && .venv-dml/Scripts/python -m pip install -r requirements-directml.txt
+.venv-dml/Scripts/python scripts/setup_directml.py                  # GPU smoke-test
+.venv-dml/Scripts/python scripts/train_router.py --size 0.5B --epochs 4 --batch 16 --device dml
+.venv-dml/Scripts/python scripts/infer_router.py --size 0.5B --device dml --batch 16 --pause 0.7
+python scripts/eval.py --preds data/preds_router_0.5B.jsonl --arm B --label router_0.5B
+```
+
+All randomness is seeded from `configs/experiment.json` (`seed: 42`); model downloads cache under
+`.cache/huggingface` on the data drive.
 
 ## Layout
 
 ```
-EXPERIMENT.md              the full brief
-vault-stats.json           anonymous structural stats of the real vault (counts only)
-configs/experiment.json    single source of truth: seeds, models, hyperparams, paths
-corpus/                    synthetic vault generator + generated <slug>.md notes
-scripts/
-  common.py                shared utils: config, HF-cache redirect, seeding, Ollama client
-  gen_corpus.py            local-LLM corpus generator (fallback) + link graph + validation
-  assemble_corpus.py       merge Sonnet-workflow notes + conversational seed notes → vault
-  build_corpus.mjs         (query→slug) pair builder — train/heldout/slugs, no-leak guarantees
-  build_multigold.py       multi-answer gold sets (coverage@k) from the link graph
-  augment.py               K paraphrase queries per train note (dedup vs held-out)
-  baseline_embed.py        Arm A: e5 + BM25 hybrid retrieval
-  train_router.py          Arm B: LoRA training (query→slug)
-  infer_router.py          Arm B: rank every valid slug by likelihood (no hallucinated ids)
-  router_common.py         shared prompt/target format, slug trie, likelihood ranking
-  retrievers.py            reusable EmbedRetriever (A) + RouterRetriever (B) for Arm C
-  decompose.py             Arm C: few-shot query decomposition (multi → K sub-queries)
-  compose_c.py             Arm C: union sub-query retrievals + decomposer topic-recall
-  eval.py                  shared metric harness: HIT/MRR/coverage@k, subsets, pair-kinds
-  aggregate_results.py     collect all arms → results.json + H1/H2/Arm-C verdicts
-  setup_directml.py        DirectML GPU smoke-test
-  run_sweep.sh             unattended Arm B+C sweep (VRAM-guarded, single-consumer)
-corpus/seed_notes.jsonl    Emil's 12 conversational, opinionated seed notes (voice anchors)
-data/                      train.jsonl, heldout.jsonl, multigold.jsonl, slugs.txt, preds_*.jsonl
-results/                   results.json + per-arm metric dumps + corpus/build stats
-paper/PAPER.md             the writeup: method, results, distance-to-bar, verdict, threats
+EXPERIMENT.md / EXPERIMENTPRECISIONS.md   the brief + the eval-confound fixes
+configs/experiment.json                   single source of truth (seeds, models, hyperparams)
+corpus/                                    synthetic vault (<slug>.md) + seed notes + generator output
+scripts/                                   gen / assemble / build_corpus / queries / baseline / router / eval / aggregate
+data/                                      train_aug.jsonl, heldout.jsonl, multigold.jsonl, slugs.txt, preds_*.jsonl
+results/                                   metrics dumps + results.json
+paper/PAPER.md                             method, results, distance-to-bar, verdict, threats, related work
 ```
 
-## Reproduce
+## License
 
-Prereqs: Python 3.10, Node 22, a running [Ollama](https://ollama.com) with the configured
-models pulled (`gemma4:e2b`, `qwen3.5:4b/9b`), and — for Arm B — an AMD GPU with DirectML.
-
-> **AMD RDNA4 (gfx1201) GPU note.** The stock Ollama installer ships ROCm 6.4.2 and silently
-> falls back to CPU on the RX 9070 XT. **Update Ollama to ≥ 0.30.11** (bundles ROCm v7.1) —
-> it then auto-detects the card with zero env vars. No driver update or third-party build
-> needed. (This repo's results used Ollama 0.30.11.)
-
-```bash
-# 1. CPU stack (baseline, eval, generation orchestration, Arm C)
-python -m pip install -r requirements.txt
-
-# 2. Corpus: the committed corpus/ is the one used. To regenerate, the workflow is
-#    conversational seed notes (corpus/seed_notes.jsonl) + a Sonnet multi-agent expansion
-#    -> corpus/generated_notes.json, then:
-python scripts/assemble_corpus.py            # merge + slugs + links + validate -> corpus/vault
-#    (scripts/gen_corpus.py is a pure-local-LLM fallback generator.)
-
-# 3. Build (query→slug) pairs + the multi-answer gold set + augmentation
-node scripts/build_corpus.mjs --vault corpus/vault
-python scripts/build_multigold.py
-python scripts/augment.py
-
-# 4. Arm A baseline + eval
-python scripts/baseline_embed.py
-python scripts/eval.py --preds data/preds_baseline.jsonl --arm A --label e5+bm25
-
-# 5. Arm B + Arm C: one unattended, VRAM-guarded sweep (separate DirectML venv)
-py -3.10 -m venv .venv-dml
-.venv-dml/Scripts/python -m pip install -r requirements-directml.txt
-.venv-dml/Scripts/python scripts/setup_directml.py     # GPU smoke-test (run once)
-python scripts/decompose.py                            # Arm C sub-queries (Ollama)
-SIZES="0.5B 1.5B" EPOCHS=4 bash scripts/run_sweep.sh   # train→infer→eval per size, + Arm C, + aggregate
-```
-
-`run_sweep.sh` enforces a single GPU consumer, caps VRAM ≤10 GB, and waits for ≥12 GB free
-before each step. All randomness is seeded from `configs/experiment.json` (`seed: 42`); model
-downloads cache under `.cache/huggingface` on the data drive (not C:).
-
----
-
-*Part of Emil's personal-memory tooling — the production system this probes is an embedding
-daemon over a real franglais vault. This experiment asks whether a generative router would
-serve that vault better on its weak spots.*
+**[PolyForm Noncommercial License 1.0.0](LICENSE)** © 2026 Emilien Devauchelle.
+Use it for research, study, and any **non-commercial** purpose. **All commercial rights are reserved** —
+contact the author for commercial licensing. See [`CITATION.cff`](CITATION.cff) to cite this work.
