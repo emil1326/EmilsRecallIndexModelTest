@@ -78,9 +78,13 @@ def main():
         for kind, p in items:
             if p["query"] in done:
                 continue
-            gold = [p["slug"]] if kind == "single" else p["slugs"]
-            rec = {"query": p["query"], "kind": p.get("kind", kind) if kind == "single" else "multi",
-                   "gold": gold, "ranked": retrieve(p["query"])}
+            if kind == "single":
+                gold = p["gold"] if "gold" in p else [p["slug"]]
+                rec = {"query": p["query"], "kind": p["kind"], "gold": gold,
+                       "source": p.get("source"), "ranked": retrieve(p["query"])}
+            else:
+                rec = {"query": p["query"], "kind": "multi", "gold": p["slugs"],
+                       "ranked": retrieve(p["query"])}
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             f.flush()
             n += 1

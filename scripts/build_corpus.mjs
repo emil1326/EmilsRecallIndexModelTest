@@ -36,6 +36,11 @@ const VAULT = arg("vault", "corpus/vault");
 const OUT = arg("out", "data");
 const HELDOUT_FRAC = parseFloat(arg("heldout", "0.15"));
 const SEED = arg("seed", "42");
+// Run 2: verbatim title/summary/assoc are TRAIN-ONLY ANCHORS. The held-out eval set is
+// generated SEPARATELY (gen_queries.py: symptom-side paraphrases + independent second-hop +
+// cluster queries) so the eval contains zero note-verbatim text. --anchors-only puts every
+// verbatim pair in train and writes no held-out (default for Run 2).
+const ANCHORS_ONLY = args.includes("--anchors-only");
 
 // ---- deterministic hash in [0,1) (NOT Node's salted hashing) ----
 function stableUnit(s) {
@@ -105,9 +110,11 @@ if (danglingLinks) console.error(`! dropped ${danglingLinks} dangling links (tar
 // ---- build pairs ----
 const train = [];
 const heldout = [];
-// held-out decision is per SOURCE NOTE (so a held-out query never appears in train)
+// held-out decision is per SOURCE NOTE (so a held-out query never appears in train).
+// In --anchors-only (Run 2) NOTHING is held out here — all verbatim pairs are train anchors;
+// the held-out eval is generated separately (gen_queries.py) with zero verbatim text.
 const heldoutNote = {};
-for (const s of slugs) heldoutNote[s] = stableUnit(s) < HELDOUT_FRAC;
+for (const s of slugs) heldoutNote[s] = ANCHORS_ONLY ? false : stableUnit(s) < HELDOUT_FRAC;
 
 function push(arr, query, slug, kind, source) {
   arr.push({ query, slug, kind, source });

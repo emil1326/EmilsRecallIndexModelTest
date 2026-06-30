@@ -99,6 +99,13 @@ def distance_to_bar(metrics):
 
 
 def evaluate(preds, slug_vocab=None):
+    # Run 2 fix: for associative queries, EXCLUDE the source note A from the ranked list before
+    # scoring (we measure reaching the linked B, not ranking B above its own source text).
+    for p in preds:
+        src = p.get("source")
+        if p.get("kind") == "assoc" and src and src not in p.get("gold", []):
+            p["ranked"] = [s for s in p["ranked"] if s != src]
+
     # invalid-slug rate (hallucinated ids)
     invalid = total_ranked = 0
     if slug_vocab is not None:

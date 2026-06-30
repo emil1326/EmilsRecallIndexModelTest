@@ -110,8 +110,9 @@ def main():
     def make_preds(weight):
         preds = []
         for p in common.read_jsonl(common.path("data_dir") / "heldout.jsonl"):
-            preds.append({"query": p["query"], "kind": p["kind"], "gold": [p["slug"]],
-                          "ranked": rank(p["query"], weight)})
+            gold = p["gold"] if "gold" in p else [p["slug"]]
+            preds.append({"query": p["query"], "kind": p["kind"], "gold": gold,
+                          "source": p.get("source"), "ranked": rank(p["query"], weight)})
         mg_path = common.path("data_dir") / "multigold.jsonl"
         if mg_path.exists():
             for p in common.read_jsonl(mg_path):
