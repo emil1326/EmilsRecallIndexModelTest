@@ -25,6 +25,7 @@ def main():
     ap.add_argument("--device", default="auto")
     ap.add_argument("--beams", type=int, default=AB["infer"]["beam_size"])
     ap.add_argument("--topk", type=int, default=AB["infer"]["top_k_out"])
+    ap.add_argument("--batch", type=int, default=192, help="likelihood-scoring batch (VRAM cap)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     common.set_seed()
@@ -50,7 +51,8 @@ def main():
     trie = rc.SlugTrie(slugs, tok, tok.eos_token_id)
 
     def retrieve(query):
-        return rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk)
+        return rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk,
+                                     batch_size=args.batch)
 
     preds = []
     heldout = common.read_jsonl(common.path("data_dir") / "heldout.jsonl")

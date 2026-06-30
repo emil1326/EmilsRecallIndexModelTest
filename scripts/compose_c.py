@@ -36,6 +36,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", required=True, choices=["A", "B"])
     ap.add_argument("--size", default="0.5B")
+    ap.add_argument("--device", default="auto")
     ap.add_argument("--per-sub", type=int, default=6, help="top-m per sub-query before union")
     ap.add_argument("--topk", type=int, default=10)
     args = ap.parse_args()
@@ -50,7 +51,7 @@ def main():
         out_name = "preds_cxA.jsonl"
         label = "CxA"
     else:
-        retr = retrievers.RouterRetriever(size=args.size, device="auto")
+        retr = retrievers.RouterRetriever(size=args.size, device=args.device)
         out_name = f"preds_cxB_{args.size}.jsonl"
         label = f"CxB_{args.size}"
 
