@@ -32,12 +32,12 @@ powershell.exe -NoProfile -Command "Get-Process ollama,'ollama app',llama-server
 sleep 3
 
 free_vram () { powershell.exe -NoProfile -File scripts/vram_free.ps1 2>/dev/null | tr -d '\r\n ' | tr ',' '.'; }
-require_vram () {            # $1 = GB needed; 0=ok, 1=gave up
-  local need="$1" tries=10 f
+require_vram () {            # $1 = GB needed; waits patiently (overnight), 0=ok 1=gave up
+  local need="$1" tries="${WAIT_TRIES:-80}" f       # 80 x 180s = up to 4h
   while [ "$tries" -gt 0 ]; do
     f=$(free_vram)
-    if awk "BEGIN{exit !(($f)+0 >= $need)}" 2>/dev/null; then echo "[vram] ${f}GB free (>=${need}) OK"; return 0; fi
-    echo "[vram] only ${f}GB free (need ${need}) — waiting 60s ($tries left)..."; sleep 60; tries=$((tries-1))
+    if awk "BEGIN{exit !(($f)+0 >= $need)}" 2>/dev/null; then echo "[vram] ${f}GB free (>=${need}) OK -> go"; return 0; fi
+    echo "[vram $(date +%H:%M)] only ${f}GB free (need ${need}) — GPU busy, waiting 180s ($tries left)..."; sleep 180; tries=$((tries-1))
   done
   echo "[vram] gave up waiting for ${need}GB free"; return 1
 }
