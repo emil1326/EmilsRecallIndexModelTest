@@ -26,3 +26,5 @@ node_modules/
 
 # Keep these (synthetic, small, shareable):
 #   corpus/, data/*.jsonl, results/*.json, configs/, paper/
+corpus/vault/.obsidian/
+corpus/qgen/

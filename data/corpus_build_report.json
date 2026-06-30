@@ -4,18 +4,15 @@
   "heldout_fraction_target": 0.15,
   "notes": 672,
   "dangling_links_dropped": 0,
-  "train_pairs": 3768,
-  "heldout_pairs": 516,
-  "heldout_notes": 95,
+  "train_pairs": 4284,
+  "heldout_pairs": 0,
+  "heldout_notes": 0,
   "train_by_kind": {
     "title": 672,
-    "summary": 577,
-    "assoc": 2519
+    "summary": 672,
+    "assoc": 2940
   },
-  "heldout_by_kind": {
-    "summary": 95,
-    "assoc": 421
-  },
+  "heldout_by_kind": {},
   "guarantees": {
     "query_text_leak": 0,
     "unanchored_heldout_slugs": 0,
