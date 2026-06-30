@@ -90,7 +90,8 @@ py -3.10 -m venv .venv-dml && .venv-dml/Scripts/python -m pip install -r require
 .venv-dml/Scripts/python scripts/setup_directml.py                  # GPU smoke-test
 .venv-dml/Scripts/python scripts/train_router.py --size 0.5B --epochs 4 --batch 16 --device dml
 .venv-dml/Scripts/python scripts/infer_router.py --size 0.5B --device dml --batch 16 --pause 0.7
-python scripts/eval.py --preds data/preds_router_0.5B.jsonl --arm B --label router_0.5B
+python scripts/eval.py --preds data/preds_router_0.5B.jsonl --arm B --label router_0.5B --out results/eval_router_0.5B.json
+#   (1.5B / 3B: bash scripts/run_all_routers.sh  — guarded train->infer->eval, one size after the other)
 ```
 
 All randomness is seeded from `configs/experiment.json` (`seed: 42`); model downloads cache under

@@ -48,6 +48,28 @@ def collate(batch, pad_id):
     return (torch.tensor(input_ids), torch.tensor(attn), torch.tensor(labels))
 
 
+def completion_loss(model, input_ids, attn, labels, keep):
+    """Memory-efficient causal-LM loss for query->slug.
+
+    HF's built-in loss materialises the full [B, L, vocab] logits in fp32 (≈9 GB at
+    batch 16 / L 96 / 152k-vocab, plus an equal-size gradient) — that is the DirectML
+    OOM. Here we run the trunk once, then apply the LM head ONLY on the completion
+    (slug) token positions selected by `keep`, so the big fp32 tensor is [N_slug, vocab]
+    (≈0.1 GB) instead of [B, L, vocab]. Identical loss (mean CE over the same tokens),
+    no new kernels — pure indexing, DirectML-safe (the data-dependent `nonzero` that
+    builds `keep` runs on CPU before the tensors move to device).
+    """
+    import torch.nn.functional as F
+    base = model.get_base_model()                     # Qwen2ForCausalLM (LoRA injected in-place)
+    h = base.model(input_ids=input_ids, attention_mask=attn).last_hidden_state  # [B, L, H]
+    h = h[:, :-1, :].reshape(-1, h.size(-1))          # predict-next: [(B*(L-1)), H]
+    tgt = labels[:, 1:].reshape(-1)                   # [(B*(L-1))]
+    h_sel = h.index_select(0, keep)                   # [N_slug, H]
+    tgt_sel = tgt.index_select(0, keep)               # [N_slug]
+    logits = base.lm_head(h_sel)                      # [N_slug, vocab]  (head on slug tokens only)
+    return F.cross_entropy(logits.float(), tgt_sel)   # mean CE over slug tokens == HF's loss
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--size", default="0.5B", choices=list(AB["base_models"].keys()))
@@ -57,6 +79,12 @@ def main():
     ap.add_argument("--batch", type=int, default=AB["train"]["batch_size"], help="override batch size (VRAM cap)")
     ap.add_argument("--accum", type=int, default=AB["train"]["grad_accum"], help="grad accumulation (effective batch = batch*accum)")
     ap.add_argument("--limit", type=int, default=0, help="cap #pairs (smoke test)")
+    ap.add_argument("--efficient-loss", dest="efficient_loss", action="store_true", default=True,
+                    help="completion-only LM-head loss (avoids the [B,L,vocab] fp32 OOM; needed for 1.5B+ on DirectML)")
+    ap.add_argument("--no-efficient-loss", dest="efficient_loss", action="store_false",
+                    help="use HF's built-in loss (full-vocab fp32; only safe for tiny vocab / 0.5B)")
+    ap.add_argument("--grad-ckpt", action="store_true",
+                    help="gradient checkpointing — frees trunk activation memory so a bigger batch fits (slower/step)")
     args = ap.parse_args()
     common.set_seed()
 
@@ -88,11 +116,16 @@ def main():
                       lora_dropout=AB["lora"]["dropout"], target_modules=AB["lora"]["target_modules"],
                       task_type="CAUSAL_LM")
     model = get_peft_model(model, lora)
+    if args.grad_ckpt:
+        model.enable_input_require_grads()              # let grad reach LoRA through the frozen base
+        model.gradient_checkpointing_enable()
     if str(device) != "cpu":
         gpu_guard.ensure_free_for(args.size, "train")   # wait for VRAM headroom before allocating
     model.to(device)
     model.train()
     model.print_trainable_parameters()
+    print(f"loss=completion-only" if args.efficient_loss else "loss=hf-builtin",
+          f"grad_ckpt={args.grad_ckpt}", flush=True)
 
     bs = args.batch
     accum = args.accum
@@ -111,11 +144,22 @@ def main():
         for i in range(0, len(examples), bs):
             batch = examples[i:i + bs]
             input_ids, attn, labels = collate(batch, tok.pad_token_id)
+            keep = None
+            if args.efficient_loss:
+                # select the completion (non -100) positions on CPU — avoids DirectML's
+                # unsupported data-dependent nonzero on-device.
+                tgt_flat = labels[:, 1:].reshape(-1)
+                keep = (tgt_flat != -100).nonzero(as_tuple=True)[0]
             input_ids, attn, labels = input_ids.to(device), attn.to(device), labels.to(device)
-            out = model(input_ids=input_ids, attention_mask=attn, labels=labels)
-            loss = out.loss / accum
+            if args.efficient_loss:
+                if keep.numel() == 0:
+                    continue
+                raw_loss = completion_loss(model, input_ids, attn, labels, keep.to(device))
+            else:
+                raw_loss = model(input_ids=input_ids, attention_mask=attn, labels=labels).loss
+            loss = raw_loss / accum
             loss.backward()
-            running += out.loss.item()
+            running += raw_loss.item()
             if ((i // bs) + 1) % accum == 0:
                 opt.step(); sched.step(); opt.zero_grad(); gstep += 1
         print(f"epoch {ep+1}/{args.epochs} loss={running/steps_per_epoch:.4f} "

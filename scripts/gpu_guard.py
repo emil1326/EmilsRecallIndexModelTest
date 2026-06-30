@@ -6,7 +6,7 @@ release() after (drops refs + gc so VRAM returns before the process exits). Comb
 small batches, this keeps the GPU footprint low — which also lowers the compute/power
 spike, the suspected crash trigger.
 
-Reads free VRAM via scripts/vram_free.ps1 (total - sum of per-process dedicated usage).
+Reads free VRAM via scripts/vram_free.ps1 (true registry total - per-ADAPTER dedicated usage).
 """
 import gc
 import subprocess
