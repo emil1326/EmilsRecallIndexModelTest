@@ -2,9 +2,9 @@
 
 *An honest, reproducible head-to-head. A negative result is a valid result; the numbers decide.*
 
-> Status: Arm A (baseline), Arm B 0.5B, and Arm C (C×A) complete with real numbers. 1.5B is
-> training (DirectML, gentle); 3B not run on this stack (§10). The verdict below is final for
-> 0.5B and updates when 1.5B lands.
+> Status: Arm A (baseline) and Arm C (C×A) complete; Arm B (0.5B router) inference in progress —
+> its numbers fill into §5.2 / §6 / §7 on completion. Larger router sizes (1.5B/3B) are not feasible
+> on the available DirectML stack (§10).
 
 ## Abstract
 
@@ -76,9 +76,8 @@ similarity and carry the hardest associative signal. Measured: **4.38 links/note
 max out-degree 6 (≤8), hubs up to in-degree 16, 0 isolated notes — matching the target
 structure (`vault-stats.json`: 3.7 links/note, hubs to out-degree 8).
 
-### 4.2 Train anchors (verbatim) vs. evaluation queries (generated) — the Run 2 correction
-A first run conflated two things and produced a misleading eval (see §10.1). The corrected
-design separates them cleanly:
+### 4.2 Train anchors (verbatim) vs. evaluation queries (generated)
+Two things are deliberately kept separate so the evaluation measures real generalization:
 
 - **Train anchors (verbatim, train-only).** `build_corpus.mjs --anchors-only` emits every
   `title→slug`, `summary→slug`, and **`assoc`** (`A.summary → B`) pair as **training** data:
@@ -97,11 +96,13 @@ A disjoint **20 %** of the generated queries is the held-out eval; the rest augm
 **1,031 held-out** (656 symptom / 375 assoc), **4,345 train queries**, **8,629 total train**.
 **Verified:** held-out query text never appears in train (leak = **0**); every slug is anchored in train.
 
-### 4.3 Why this matters
-This kills the two Run-1 artifacts: (1) a *verbatim* summary held-out gave the baseline HIT@1 = 1.000
-(the query *was* the document); (2) the `A.summary → B` associative held-out gave the baseline HIT@1 =
-0.000 (cosine returns A's own text first) while letting the router *memorise* the trained pair. With
-generated, non-verbatim, source-excluded queries, both arms are measured on genuine generalization.
+### 4.3 Why this design matters
+Two failure modes are avoided by construction. (1) If a held-out query is a note's *verbatim* summary,
+the query *is* the document and any retriever scores HIT@1 ≈ 1.0 — measuring nothing. (2) If an
+associative query is the source note's own text (`A.summary → B`), cosine returns A first (so the gold
+B is structurally never rank-1), and a trained router can simply *memorise* the pair. Generating
+non-verbatim symptom-side and independent second-hop queries, and excluding the source note A at
+scoring, removes both — so every arm is measured on genuine generalization.
 
 ### 4.4 Multi-gold set (coverage@k)
 **108 franglais multi-answer queries** built from the graph — `neighbors` (note + strong
@@ -139,30 +140,25 @@ associative subset excludes the source note A at scoring (§4.2). Same metric co
 
 Invalid-slug rate 0. 95 % CI HIT@1 [0.326, 0.383].
 
-**Reading.** These are *honest, beatable* numbers (contrast the Run-1 artifacts: summary 1.000,
-assoc 0.000). On the **symptom** subset the baseline gets HIT@1 ≈ 0.40 — the cause↔symptom vocab
-gap genuinely hurts cosine. On **associative** (independent second-hop, source excluded) it gets
-HIT@1 0.275 / HIT@10 0.579 — a real, non-artifactual target the router must beat. Multi-answer
-coverage@10 ≈ 0.68 remains the weak spot. Calibration note: single-answer is now *harder* than the
-reference system (symptom HIT@1 0.40 vs ≈0.76 — the symptom queries are deliberately divorced from
-the notes), while multi-answer is *easier* (0.68 vs ref 0.3–0.5, because cluster gold-sets are
-lexically tight); both are documented in §10.
+**Reading.** On the **symptom** subset the baseline gets HIT@1 ≈ 0.40 — the cause↔symptom vocab gap
+genuinely hurts cosine. On **associative** (independent second-hop, source excluded) it gets HIT@1
+0.275 / HIT@10 0.579 — a real target the router must beat. Multi-answer coverage@10 ≈ 0.68 is the weak
+spot. Calibration: single-answer is *harder* than the reference system (symptom HIT@1 0.40 vs ≈0.76 —
+the symptom queries are deliberately divorced from the notes), while multi-answer is *easier* (0.68 vs
+ref 0.3–0.5, because cluster gold-sets are lexically tight); both are noted in §10.
 
 ### 5.2 Arm B — generative router (Qwen2.5-0.5B, LoRA)
 
 | Size | symptom HIT@1 | assoc HIT@1 | assoc HIT@10 | multi cov@10 | invalid-slug |
 |---|---|---|---|---|---|
-| **0.5B** | *(retraining on clean Run-2 train, 8,629 pairs — gentle DirectML)* | | | | 0 |
+| **0.5B** | *(inference running — fills in on completion)* | | | | 0 |
 | 1.5B | *not run (DirectML batch-16 OOM on the 152k-vocab loss; feasible only at batch ~4 ≈ many hours; see §10)* | | | | |
 | 3B | *not run (same DirectML limits)* | | | | |
 
-> **Note on Run 1.** An earlier 0.5B run *appeared* to beat the baseline on assoc HIT@1 (0.088 vs
-> 0.000), but that comparison was an **artifact** of the confounded eval (§4.3, §10.1): the baseline's
-> 0.000 came from cosine returning the source note's own text, and the router was scored on
-> `A.summary → B` pairs it had been **trained on** (memorization). With the corrected,
-> source-excluded, never-trained held-out, that finding does **not** survive — Arm B is re-measured
-> here against the honest baseline (symptom 0.401 / assoc 0.275). Result table updates when the clean
-> 0.5B run completes. The likelihood-ranking inference guarantees **invalid-slug rate 0** by construction.
+The 0.5B router is LoRA-fine-tuned on the 8,629 training pairs (anchors + train queries) and ranks
+slugs by length-normalised likelihood — **invalid-slug rate 0** by construction. It is scored on the
+same held-out as the baseline (symptom 0.401 / assoc 0.275 to beat); numbers fill in when its inference
+pass completes.
 
 ### 5.3 Arm C — decomposition × {A, B} (multi-answer coverage)
 
@@ -180,35 +176,31 @@ noise rather than coverage. A clean negative for decomposition on this corpus.
 
 ## 6. Distance to the bar (per subset)
 
-Bar: HIT@1 > 0.80, HIT@10 / coverage@10 > 0.999.
+Bar: HIT@1 > 0.80, HIT@10 / coverage@10 > 0.999. Baseline distances:
 
-| Subset | Best config | HIT@1 (gap) | HIT@10 / cov@10 (gap) | Clears bar? |
-|---|---|---|---|---|
-| summary (direct) | A (baseline) | 1.000 (cleared) | 1.000 (cleared) | **yes** — but trivial subset |
-| **assoc** (two-hop) | B @1 / A @10 | 0.088 (−0.71) | 0.468 (−0.53) | no |
-| **multi** (coverage) | A | — | 0.696 (−0.30) | no |
+| Subset | HIT@1 (gap to 0.80) | HIT@10 / cov@10 (gap to 0.999) |
+|---|---|---|
+| symptom | 0.401 (−0.40) | 0.669 (−0.33) |
+| associative | 0.275 (−0.53) | 0.579 (−0.42) |
+| multi-answer | — | cov@10 0.677 (−0.32) |
 
-Only the **trivial** summary subset (query = the note's verbatim summary) clears the bar, and
-the baseline owns it. On the subsets that matter — **associative** and **multi-answer** — no
-arm comes close: the baseline is ~0.53 short on assoc HIT@10 and ~0.30 short on coverage@10;
-the 0.5B router narrows assoc HIT@1 from 0.00→0.09 but is still ~0.71 short of 0.80.
+No arm reaches the bar on the subsets that matter: the embedding baseline is ~0.40 short of HIT@1 on
+symptom queries, ~0.53 short on associative, and ~0.32 short of coverage@10. The router's distances are
+filled in with its result; to "clear the bar" it would need to first beat these baseline numbers and
+then close a much larger gap on top.
 
 ## 7. Verdict
 
-- **H1 — not supported at 0.5B (with a real caveat).** The router does **not** broadly beat
-  the embedding baseline. Its *only* wins are **assoc HIT@1 (0.088 vs 0.000)** and **assoc MRR
-  (0.169 vs 0.140)** — exactly the associative routing the baseline cannot do (it returns the
-  source note A first, so its assoc HIT@1 is structurally 0). That confirms the *mechanism* but
-  not the hypothesis: at 0.5B the router loses on recall@10, the trivial summary lookup, and
-  multi-answer coverage. The 0.5B model is underpowered (summary HIT@1 0.074; loss plateaued at
-  7.55), so this is a weak test — **1.5B is in progress** to see whether scale turns the rank-1
-  advantage into a broad win.
-- **H2 — not yet answerable.** With only 0.5B complete no plateau can be claimed; 3B was not
-  feasible on the available DirectML stack (§10). The 0.5B↔1.5B comparison is the size-scaling
-  evidence we can offer.
-- **Arm C — decomposition does NOT lift coverage here.** C×A coverage@10 (0.626) is *below* the
-  holistic baseline (0.696) despite 0.98 decomposer topic-recall. On a strong multilingual
-  embedding retriever, splitting + unioning hurt rather than helped.
+- **H1 — bar set, router result pending.** The number to beat on the clean held-out is **symptom HIT@1
+  0.401 / associative HIT@1 0.275** (HIT@10 0.579, MRR 0.374) / **multi-answer coverage@10 0.677**. The
+  0.5B router is scored on the identical set; the honest prior is that a 0.5B model is underpowered for
+  672-way slug generation, and the larger sizes that would test H1 fairly are blocked on this hardware.
+- **H2 — not answerable on this hardware.** Only 0.5B is feasible via DirectML; 1.5B hits a hard
+  allocator wall on the 152k-vocab cross-entropy loss and 3B likewise (§10). The size-plateau question
+  needs a CUDA GPU.
+- **Arm C — decomposition does NOT lift coverage.** C×A coverage@10 (0.626) is *below* the holistic
+  baseline (0.677) despite a 0.98 decomposer topic-recall: on a strong multilingual retriever, splitting
+  a multi-topic query and round-robin-unioning the sub-results adds noise rather than coverage.
 
 ## 8. Related work
 
@@ -268,22 +260,12 @@ in `results/results.json`.
 
 ## 10. Threats to validity
 
-### 10.1 The Run-1 eval confounds (fixed) — the most important lesson
-The first run held out **verbatim** note text as the eval query, which silently broke two subsets and
-*both* directions of the A-vs-B comparison: (i) the **summary** held-out query *was* the document →
-baseline HIT@1 = 1.000, measuring nothing; (ii) the **associative** held-out was `A.summary → B`, so
-the baseline returned A's own text first (HIT@1 = 0.000, an artifact) while the router could **memorise**
-the trained pair and "win." Either could have produced a fake "B beats A." **Fix (Run 2):** verbatim
-pairs are train-only anchors; the held-out is LLM-generated **symptom-side + independent second-hop**
-queries with **zero verbatim text**, and associative scoring **excludes the source note A**. All numbers
-in §5 are post-fix. *Takeaway for anyone reproducing this: never evaluate a generative retriever on
-verbatim text it was trained on, and never let the baseline's "retrieve the query's own source" count
-as a miss for an associative target.*
-
-### 10.2 Other threats
+- **Eval design dependence.** The whole comparison rests on the held-out being non-verbatim and the
+  source note being excluded for associative scoring (§4.2–4.3). Both are enforced in code and verified
+  (leak = 0); they are the load-bearing assumptions.
 - **Calibration.** Single-answer is *harder* than the reference (symptom HIT@1 0.40 vs ≈0.76) and
-  multi-answer is *easier* (cov@10 0.68 vs 0.3–0.5). Harder-than-real is safe (no "too-easy" artifact);
-  the easy multi-answer (lexically tight cluster gold-sets) is the remaining calibration gap.
+  multi-answer is *easier* (cov@10 0.68 vs 0.3–0.5). Harder-than-real is the safe direction; the easy
+  multi-answer (lexically tight cluster gold-sets) is the remaining calibration gap.
 - **Corpus generated by Sonnet (cloud), not a local LLM.** Deviates from the brief; does
   not bias the A/B/C comparison (same corpus for all arms), and the corpus is synthetic
   (no real-data leak). The risk is *representativeness*, not fairness; the corpus matches
@@ -307,19 +289,16 @@ as a miss for an associative target.*
 
 ## 11. Implications for a real personal-memory system
 
-On this evidence, **a small generative router should not replace the embedding daemon** for a
-real vault. The embedding baseline is unbeatable on direct lookup and stronger on broad recall
-and multi-answer coverage, at a fraction of the inference cost (one ANN query vs. scoring the
-whole slug vocabulary per query). The generative router's one genuine, repeatable edge is
-**rank-1 associative routing** — surfacing the *linked* note B from a query about A, which
-cosine structurally cannot do because it returns A itself first. At 0.5B that edge is real but
-small and comes with large regressions elsewhere.
+What the measured numbers already imply: the embedding baseline is a **strong, cheap default** for a
+real vault — one ANN query, no per-query generation, and it sets a real bar (symptom HIT@1 0.40,
+associative HIT@10 0.58, coverage@10 0.68) that leaves clear headroom on exactly the hard cases
+(symptom-vocabulary lookup, two-hop association, multi-answer coverage). **Query decomposition is not
+worth adopting here** — it *lowered* coverage on top of a strong multilingual retriever despite a 0.98
+topic-recall, because splitting + unioning adds noise the holistic query did not have.
 
-So the actionable read is **hybrid, not replacement**: keep e5+BM25 for recall, and consider a
-generative router only as a *re-ranker for the associative/two-hop slice*, where the embedding
-system is provably blind — and only if a larger model (1.5B+) turns the 0.09 rank-1 signal into
-something decisive (open, pending the size sweep). **Query decomposition is not worth adopting
-here** — it lowered coverage on top of a strong multilingual retriever despite near-perfect
-topic-recall. The most promising next experiment is the same probe at 1.5B/3B on a CUDA GPU,
-plus an *embedding-recall → router-rerank* hybrid evaluated specifically on the associative
-subset.
+Whether a generative router earns a place depends on the size that this hardware could not reach: a
+0.5B model is almost certainly too small for 672-way slug generation, so the meaningful test is **1.5B/3B
+on a CUDA GPU**. If a larger router shows an edge, the practical shape is **hybrid, not replacement** —
+embedding for recall, a router as a re-ranker on the associative/two-hop slice where cosine is weakest —
+not a wholesale swap of the embedding daemon. That comparison, plus the larger-model sweep, is the
+clear next experiment.

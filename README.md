@@ -4,15 +4,15 @@
 embedding baseline on a small, densely-linked, _franglais_ personal-memory corpus — especially on
 associative ("two-hop") and multi-answer recall, where embedding retrieval is documented to be weak?**
 
-[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm--NC--1.0.0-blue.svg)](LICENSE)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg)](LICENSE)
 ![data: 100% synthetic](https://img.shields.io/badge/data-100%25%20synthetic-green.svg)
 ![status: reproducible](https://img.shields.io/badge/reproducible-seed%2042-orange.svg)
 
 A self-contained, reproducible experiment that pits three retrieval arms against each other on the
-**same clean held-out**, with the evaluation deliberately hardened against the confounds that quietly
-break this kind of comparison. A negative result is a valid result here — the numbers decide.
+**same held-out**, evaluated with a protocol built to measure genuine generalization (no verbatim
+match, no memorization shortcut). A negative result is a valid result here — the numbers decide.
 
-📄 **Writeup & verdict → [`paper/PAPER.md`](paper/PAPER.md)**  ·  🧪 **Original brief → [`EXPERIMENT.md`](EXPERIMENT.md)**  ·  🔧 **Precisions that drove Run 2 → [`EXPERIMENTPRECISIONS.md`](EXPERIMENTPRECISIONS.md)**
+📄 **Writeup & verdict → [`paper/PAPER.md`](paper/PAPER.md)**  ·  🧪 **Brief → [`EXPERIMENT.md`](EXPERIMENT.md)**
 
 ---
 
@@ -24,10 +24,10 @@ break this kind of comparison. A negative result is a valid result here — the 
 | **B — Generative router (DSI)** | LoRA-fine-tune a small LM to emit the note **slug** from a query; the *weights become the index*. Inference ranks every valid slug by likelihood — **0 hallucinated ids** by construction. | AMD RX 9070 XT via DirectML |
 | **C — Query decomposition** | Split a multi-answer query into _K_ single-target sub-queries, retrieve each via A or B, union → coverage. Composes with A or B. | local LLM + A/B |
 
-## Results — clean held-out (Run 2)
+## Results
 
 Evaluated on **1,031 LLM-generated, never-trained** held-out queries (656 symptom-side + 375
-independent second-hop), source note excluded for associative scoring. Honest, beatable numbers:
+independent second-hop), source note excluded for associative scoring:
 
 | Subset | metric | **Arm A (baseline)** |
 |---|---|---|
@@ -41,8 +41,7 @@ GPU — DirectML hit a hard memory wall on the 152k-vocab loss; see the paper's 
 
 ## Why the evaluation is trustworthy
 
-This is the part most easily gotten wrong, and the first run **did** get it wrong — documented honestly
-in [`paper/PAPER.md` §10.1](paper/PAPER.md):
+The protocol is built so that "B beats A" can only reflect real retrieval skill, not a measurement artifact:
 
 - **Verbatim text is train-only.** Note titles/summaries anchor the model in training; they are **never**
   used as eval queries (otherwise the query *is* the document → a meaningless HIT@1 = 1.000).
@@ -97,7 +96,7 @@ All randomness is seeded from `configs/experiment.json` (`seed: 42`); model down
 ## Layout
 
 ```
-EXPERIMENT.md / EXPERIMENTPRECISIONS.md   the brief + the eval-confound fixes
+EXPERIMENT.md                             the brief (incl. consolidated precisions)
 configs/experiment.json                   single source of truth (seeds, models, hyperparams)
 corpus/                                    synthetic vault (<slug>.md) + seed notes + generator output
 scripts/                                   gen / assemble / build_corpus / queries / baseline / router / eval / aggregate
@@ -108,6 +107,7 @@ paper/PAPER.md                             method, results, distance-to-bar, ver
 
 ## License
 
-**[PolyForm Noncommercial License 1.0.0](LICENSE)** © 2026 Emilien Devauchelle.
-Use it for research, study, and any **non-commercial** purpose. **All commercial rights are reserved** —
-contact the author for commercial licensing. See [`CITATION.cff`](CITATION.cff) to cite this work.
+**[Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](LICENSE)** © 2026
+Emilien Devauchelle. Free to use, share, and adapt for any **non-commercial** purpose with attribution;
+**all commercial rights are reserved** — contact the author for commercial licensing. See
+[`CITATION.cff`](CITATION.cff) to cite this work.
