@@ -16,7 +16,7 @@ PY="python"
 LOG="results/sweep.log"
 SIZES="${SIZES:-0.5B 1.5B 3B}"
 EPOCHS="${EPOCHS:-4}"
-NEED_FREE="${NEED_FREE:-12}"     # GB free required before a GPU step
+NEED_FREE="${NEED_FREE:-10}"     # GB free required before a GPU step (models use <=6GB)
 mkdir -p results runs
 exec > >(tee -a "$LOG") 2>&1
 echo "===================================================================="
