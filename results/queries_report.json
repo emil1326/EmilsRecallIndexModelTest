@@ -1,0 +1,23 @@
+{
+  "raw": 5376,
+  "valid_unique": 5376,
+  "dropped": {
+    "bad_slug": 0,
+    "assoc_self": 0,
+    "dup": 0,
+    "in_anchor": 0,
+    "empty": 0
+  },
+  "heldout": 1031,
+  "heldout_by_kind": {
+    "symptom": 656,
+    "assoc": 375
+  },
+  "train_queries": 4345,
+  "train_by_kind": {
+    "symptom": 2704,
+    "assoc": 1641
+  },
+  "train_aug_total": 8629,
+  "leak": 0
+}

@@ -122,7 +122,8 @@ def evaluate(preds, slug_vocab=None):
 
     single = [r for r in preds if len(r["gold"]) == 1]
     multi = [r for r in preds if len(r["gold"]) > 1]
-    novel = [r for r in single if r.get("kind") in ("summary", "assoc")]
+    # Run 2 held-out is all LLM-generated, non-verbatim -> "novel phrasing" = all single
+    novel = [r for r in single if r.get("kind") in ("summary", "assoc", "symptom")]
 
     report = {
         "overall_single": subset("single", single),
@@ -131,7 +132,7 @@ def evaluate(preds, slug_vocab=None):
         "by_kind": {},
         "invalid_slug_rate": round(invalid / total_ranked, 5) if total_ranked else None,
     }
-    for kind in ("title", "summary", "assoc"):
+    for kind in ("title", "summary", "symptom", "assoc"):
         recs = [r for r in single if r.get("kind") == kind]
         if recs:
             report["by_kind"][kind] = eval_group(recs)
