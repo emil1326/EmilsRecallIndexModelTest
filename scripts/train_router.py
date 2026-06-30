@@ -55,6 +55,7 @@ def main():
     ap.add_argument("--device", default="auto")
     ap.add_argument("--epochs", type=int, default=AB["train"]["epochs"])
     ap.add_argument("--batch", type=int, default=AB["train"]["batch_size"], help="override batch size (VRAM cap)")
+    ap.add_argument("--accum", type=int, default=AB["train"]["grad_accum"], help="grad accumulation (effective batch = batch*accum)")
     ap.add_argument("--limit", type=int, default=0, help="cap #pairs (smoke test)")
     args = ap.parse_args()
     common.set_seed()
@@ -94,7 +95,7 @@ def main():
     model.print_trainable_parameters()
 
     bs = args.batch
-    accum = AB["train"]["grad_accum"]
+    accum = args.accum
     opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=AB["train"]["lr"])
     steps_per_epoch = math.ceil(len(examples) / bs)
     total_steps = steps_per_epoch * args.epochs

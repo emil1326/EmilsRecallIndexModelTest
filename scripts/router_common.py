@@ -88,14 +88,15 @@ def rank_by_likelihood(model, tok, query, trie, device, k=10, batch_size=96):
             attn[r, :len(s)] = 1
         with torch.no_grad():
             logits = model(input_ids=input_ids.to(device), attention_mask=attn.to(device)).logits
-            logprobs = F.log_softmax(logits.float(), dim=-1).cpu()
-        for r, s in enumerate(chunk):
-            tgt = trie.seqs[s]                       # slug tokens + EOS
-            total = 0.0
-            for j in range(len(tgt)):
-                pos = P + j - 1                      # logits at pos predict token at pos+1
-                total += logprobs[r, pos, tgt[j]].item()
-            scores[s] = total / len(tgt)             # length-normalized log-prob
+            # memory-efficient log-prob: gather target logits and subtract logsumexp, WITHOUT
+            # materializing a full [B, L, vocab] fp32 softmax (the OOM hog for 152k-vocab models)
+            lse = torch.logsumexp(logits, dim=-1)            # [B, L]
+            for r, s in enumerate(chunk):
+                tgt = trie.seqs[s]
+                idx = torch.arange(P - 1, P - 1 + len(tgt), device=logits.device)
+                toks = torch.tensor(tgt, device=logits.device)
+                tgt_logit = logits[r, idx, toks]             # [len(tgt)]
+                scores[s] = (tgt_logit - lse[r, idx]).sum().item() / len(tgt)  # len-normalized
     return [s for s, _ in sorted(scores.items(), key=lambda x: -x[1])[:k]]
 
 
