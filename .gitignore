@@ -28,3 +28,6 @@ node_modules/
 #   corpus/, data/*.jsonl, results/*.json, configs/, paper/
 corpus/vault/.obsidian/
 corpus/qgen/
+
+# transient GPU run logs (regenerable)
+results/*.log

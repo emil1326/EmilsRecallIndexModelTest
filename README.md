@@ -27,20 +27,26 @@ match, no memorization shortcut). A negative result is a valid result here — t
 ## Results
 
 Evaluated on **1,031 LLM-generated, never-trained** held-out queries (656 symptom-side + 375
-independent second-hop), source note excluded for associative scoring. Same metric code for both arms:
+independent second-hop), source note excluded for associative scoring. Same metric code for every arm:
 
-| Subset | metric | **Arm A — embedding** | **Arm B — router (0.5B)** | winner |
+| Subset | metric | **Arm A — embedding** | **router 0.5B** | **router 1.5B** |
 |---|---|---|---|---|
-| symptom (cause↔symptom gap) | HIT@1 / HIT@10 / MRR | **0.401 / 0.669 / 0.492** | 0.178 / 0.593 / 0.296 | **A** (paired, significant) |
-| associative (independent 2-hop) | HIT@1 / HIT@10 / MRR | 0.275 / 0.579 / 0.374 | 0.245 / 0.640 / 0.360 | tie (paired CIs overlap 0) |
-| multi-answer | coverage@10 | **0.677** | 0.493 | **A** |
+| symptom (cause↔symptom gap) | HIT@1 / HIT@10 | 0.401 / 0.669 | 0.178 / 0.593 | 0.364 / **0.794** |
+| **associative** (independent 2-hop) | HIT@1 / HIT@10 | 0.275 / 0.579 | 0.245 / 0.640 | **0.499 / 0.877** |
+| multi-answer | coverage@10 | **0.677** | 0.493 | 0.579 |
 
-Invalid-slug rate **0** for both. **The embedding baseline wins overall**; the 0.5B generative router
-is only its statistical equal on associative two-hop recall (the one subset it was hypothesized to win),
-and loses on symptom and multi-answer. Query decomposition (Arm C) *lowered* coverage (0.677 → 0.580).
-Full per-*k* tables, paired bootstrap CIs, and the verdict are in [`paper/PAPER.md`](paper/PAPER.md).
-*(Larger router sizes (1.5B/3B), which would test H2 and give the router a fairer shot, need a CUDA GPU —
-DirectML hit a hard memory wall on the 152k-vocab loss; see the paper's threats section.)*
+Invalid-slug rate **0** everywhere. The story is **size-dependent and turns on the associative case**:
+the 0.5B router loses overall (it only ties associative), but the **1.5B router decisively beats the
+embedding baseline on associative two-hop recall** — paired bootstrap HIT@1 **+0.224** (95% CI
+[+0.160, +0.291]) and HIT@10 **+0.299** ([+0.245, +0.355]), both clear of zero — and wins symptom
+HIT@10, while **still losing multi-answer coverage** (0.579 vs 0.677). So **H1 is partially supported**
+(associative yes, multi-answer no), and the associative advantage **scales steeply** (HIT@10
+0.640→0.877 across 0.5B→1.5B) — *no plateau yet*, which is the opposite of what H2 predicted; the
+pending **3B** run tests saturation. The comparison is deliberately asymmetric (the router is trained on
+the corpus link graph, the baseline is zero-shot on it) — so the win means *a router that learned the
+associations generalizes to novel second-hop phrasings cosine can't bridge*. No arm clears the absolute
+bar (HIT@1 > 0.80). Query decomposition (Arm C) *lowered* coverage (0.677 → 0.580). Full per-*k* tables,
+paired CIs, and the verdict are in [`paper/PAPER.md`](paper/PAPER.md).
 
 ## Why the evaluation is trustworthy
 
