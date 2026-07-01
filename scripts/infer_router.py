@@ -29,6 +29,10 @@ def main():
     ap.add_argument("--batch", type=int, default=64, help="likelihood-scoring batch (VRAM cap)")
     ap.add_argument("--pause", type=float, default=0.0, help="seconds to idle between queries (gentle GPU)")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--dump-scores", action="store_true",
+                    help="also store top-N (slug, sum_logprob, n_tokens) per query -> offline α-sweep / "
+                         "MMR / fusion with no GPU re-run. Ranking is unchanged; adds a 'scored' field.")
+    ap.add_argument("--dump-topn", type=int, default=50, help="how many scored slugs to keep per query")
     args = ap.parse_args()
     common.set_seed()
 
@@ -55,8 +59,15 @@ def main():
     trie = rc.SlugTrie(slugs, tok, tok.eos_token_id)
 
     def retrieve(query):
+        """Returns (ranked_topk_slugs, scored_or_None). Ranking identical either way."""
+        if args.dump_scores:
+            full = rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk,
+                                         batch_size=args.batch, return_scores=True)
+            ranked = [s for s, _, _ in full[:args.topk]]
+            scored = [[s, round(sl, 5), n] for s, sl, n in full[:args.dump_topn]]
+            return ranked, scored
         return rc.rank_by_likelihood(model, tok, query, trie, device, k=args.topk,
-                                     batch_size=args.batch)
+                                     batch_size=args.batch), None
 
     import time
     out = args.out or str(common.path("data_dir") / f"preds_router_{args.size}.jsonl")
@@ -78,13 +89,15 @@ def main():
         for kind, p in items:
             if p["query"] in done:
                 continue
+            ranked, scored = retrieve(p["query"])
             if kind == "single":
                 gold = p["gold"] if "gold" in p else [p["slug"]]
                 rec = {"query": p["query"], "kind": p["kind"], "gold": gold,
-                       "source": p.get("source"), "ranked": retrieve(p["query"])}
+                       "source": p.get("source"), "ranked": ranked}
             else:
-                rec = {"query": p["query"], "kind": "multi", "gold": p["slugs"],
-                       "ranked": retrieve(p["query"])}
+                rec = {"query": p["query"], "kind": "multi", "gold": p["slugs"], "ranked": ranked}
+            if scored is not None:
+                rec["scored"] = scored
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             f.flush()
             n += 1

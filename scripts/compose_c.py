@@ -32,13 +32,30 @@ def union_roundrobin(rankings, k):
     return out
 
 
+def union_rrf(rankings, k, c=10):
+    """Reciprocal Rank Fusion: score(slug) = sum_sub-queries 1/(c + rank). A slug moderately
+    ranked across SEVERAL sub-queries beats a distractor that is rank-1 under only one — which
+    is exactly the failure mode of round-robin on multi-answer clusters (see scripts/exp_fusion.py:
+    on the baseline this lifts C×A cov@10 0.580 -> ~0.598; the bigger win is expected for C×B,
+    where the router is a far stronger per-sub-query retriever)."""
+    fused = {}
+    for r in rankings:
+        for rank, slug in enumerate(r):
+            fused[slug] = fused.get(slug, 0.0) + 1.0 / (c + rank)
+    return [s for s, _ in sorted(fused.items(), key=lambda x: -x[1])[:k]]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", required=True, choices=["A", "B"])
     ap.add_argument("--size", default="0.5B")
     ap.add_argument("--device", default="auto")
-    ap.add_argument("--per-sub", type=int, default=6, help="top-m per sub-query before union")
+    ap.add_argument("--per-sub", type=int, default=10, help="top-m per sub-query before union")
     ap.add_argument("--topk", type=int, default=10)
+    ap.add_argument("--fusion", choices=["rrf", "roundrobin"], default="rrf",
+                    help="how to union sub-query rankings (rrf beats round-robin; see exp_fusion.py)")
+    ap.add_argument("--rrf-c", type=int, default=10, help="RRF constant (lower = rank-1 weighted more)")
+    ap.add_argument("--batch", type=int, default=16, help="router slug-scoring batch (Arm B; 96 OOMs)")
     args = ap.parse_args()
 
     decomposed = common.read_jsonl(DATA / "decomposed.jsonl")
@@ -54,7 +71,7 @@ def main():
         import gpu_guard
         if args.device != "cpu":
             gpu_guard.ensure_free_for(args.size, "compose-B")
-        retr = retrievers.RouterRetriever(size=args.size, device=args.device)
+        retr = retrievers.RouterRetriever(size=args.size, device=args.device, batch_size=args.batch)
         out_name = f"preds_cxB_{args.size}.jsonl"
         label = f"CxB_{args.size}"
 
@@ -62,7 +79,8 @@ def main():
     topic_recalls = []
     for i, d in enumerate(decomposed):
         rankings = [retr.rank(sq, k=args.per_sub) for sq in d["subqueries"]]
-        ranked = union_roundrobin(rankings, args.topk)
+        ranked = (union_rrf(rankings, args.topk, c=args.rrf_c) if args.fusion == "rrf"
+                  else union_roundrobin(rankings, args.topk))
         preds.append({"query": d["query"], "kind": "multi", "gold": d["gold"], "ranked": ranked})
         # topic-recall: gold clusters covered by the union of sub-query hits
         gold_clusters = {slug_cluster.get(s) for s in d["gold"]}
@@ -77,7 +95,7 @@ def main():
     report = {"arm": label, "queries": len(preds),
               "avg_subqueries": round(sum(len(d["subqueries"]) for d in decomposed) / max(1, len(decomposed)), 2),
               "decomposer_topic_recall": round(sum(topic_recalls) / max(1, len(topic_recalls)), 4),
-              "per_sub": args.per_sub}
+              "per_sub": args.per_sub, "fusion": args.fusion, "rrf_c": args.rrf_c}
     (common.path("results_dir") / f"compose_{label}_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)

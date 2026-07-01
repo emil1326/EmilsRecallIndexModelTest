@@ -62,21 +62,23 @@ class SlugTrie:
         return list(node.keys())
 
 
-def rank_by_likelihood(model, tok, query, trie, device, k=10, batch_size=96):
+def rank_by_likelihood(model, tok, query, trie, device, k=10, batch_size=96, return_scores=False):
     """Exact constrained ranking for a SMALL corpus: score every valid slug's token
     sequence under the model (teacher forcing) and rank by total log-prob. Guarantees
     only valid slugs (no hallucination, invalid-rate=0) without beam-search fragility.
 
-    Returns the top-k slugs (highest likelihood first)."""
+    Default: returns the top-k slugs (highest mean log-prob first) — unchanged.
+    return_scores=True: returns the FULL ranked list of (slug, sum_logprob, n_tokens), so the
+      caller can dump raw components for offline re-ranking (length-penalty α sweep, MMR/diversity,
+      score-fusion) with no GPU re-run. The default ranking is exactly sum_logprob / n_tokens (α=1)."""
     import torch
-    import torch.nn.functional as F
 
     prompt_ids = tok.encode(format_prompt(query), add_special_tokens=False)
     P = len(prompt_ids)
     slugs = list(trie.seqs.keys())
     pad_id = tok.pad_token_id if tok.pad_token_id is not None else tok.eos_token_id
 
-    scores = {}
+    raw = {}  # slug -> (sum_logprob, n_tokens)
     for i in range(0, len(slugs), batch_size):
         chunk = slugs[i:i + batch_size]
         seqs = [prompt_ids + trie.seqs[s] for s in chunk]  # trie.seqs includes trailing EOS
@@ -96,8 +98,11 @@ def rank_by_likelihood(model, tok, query, trie, device, k=10, batch_size=96):
                 idx = torch.arange(P - 1, P - 1 + len(tgt), device=logits.device)
                 toks = torch.tensor(tgt, device=logits.device)
                 tgt_logit = logits[r, idx, toks]             # [len(tgt)]
-                scores[s] = (tgt_logit - lse[r, idx]).sum().item() / len(tgt)  # len-normalized
-    return [s for s, _ in sorted(scores.items(), key=lambda x: -x[1])[:k]]
+                raw[s] = ((tgt_logit - lse[r, idx]).sum().item(), len(tgt))
+    ranked = sorted(raw, key=lambda s: -(raw[s][0] / raw[s][1]))  # mean log-prob (α=1), as before
+    if return_scores:
+        return [(s, raw[s][0], raw[s][1]) for s in ranked]
+    return ranked[:k]
 
 
 def make_prefix_allowed_fn(trie, prompt_len_by_batch):

@@ -59,7 +59,7 @@ class EmbedRetriever:
 class RouterRetriever:
     """Generative router (Arm B): base+adapter, trie-constrained beam search."""
 
-    def __init__(self, size="0.5B", device="auto", beams=None):
+    def __init__(self, size="0.5B", device="auto", beams=None, batch_size=16):
         import json
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -68,6 +68,7 @@ class RouterRetriever:
         self.rc = rc
         self.torch = torch
         self.beams = beams or CFG["arm_b"]["infer"]["beam_size"]
+        self.batch_size = batch_size   # slug-scoring batch; 96 OOMs on 1.5B/3B DirectML, 16 is safe
         self.device = rc.pick_device(device)
         adapter = common.path("runs_dir") / f"router_{size}"
         base = json.loads((adapter / "train_meta.json").read_text())["base"]
@@ -84,4 +85,4 @@ class RouterRetriever:
 
     def rank(self, query, k=10):
         return self.rc.rank_by_likelihood(self.model, self.tok, query, self.trie,
-                                          self.device, k=k)
+                                          self.device, k=k, batch_size=self.batch_size)
